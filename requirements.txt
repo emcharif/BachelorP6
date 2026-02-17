@@ -2,3 +2,5 @@ torch
 torch-geometric
 networkx
 matplotlib
+crgeo
+numpy
