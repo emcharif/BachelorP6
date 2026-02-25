@@ -5,6 +5,4 @@ data = torch.load(
     weights_only=False
 )
 
-print("Type:", type(data))
 print("Data:", data)
-print()
