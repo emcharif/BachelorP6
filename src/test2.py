@@ -21,6 +21,3 @@ print(f"Width: {width}")
 # Or look at all vehicles' lengths at once
 all_lengths = vehicle_features[:, 7]
 print(f"All vehicle lengths (149 values): {all_lengths}")
-
-
-## This is a test addition.
