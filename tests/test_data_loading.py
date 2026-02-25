@@ -5,13 +5,13 @@ import os
 
 def test_data_file_exists():
     """Test that the data file exists"""
-    data_path = "tests/data/data-0002-0001.pt"
+    data_path = "tests/test_data/data-0002-0001.pt"
     assert os.path.exists(data_path), f"Data file not found at {data_path}"
 
 
 def test_data_loads_successfully():
     """Test that data loads without errors"""
-    data_path = "tests/data/data-0002-0001.pt"
+    data_path = "tests/test_data/data-0002-0001.pt"
     
     data = torch.load(data_path, weights_only=False)
     assert data is not None, "Loaded data should not be None"
@@ -19,7 +19,7 @@ def test_data_loads_successfully():
 
 def test_data_is_not_empty():
     """Test that loaded data is not empty"""
-    data_path = "tests/data/data-0002-0001.pt"
+    data_path = "tests/test_data/data-0002-0001.pt"
     data = torch.load(data_path, weights_only=False)
     
     # Check based on data type
