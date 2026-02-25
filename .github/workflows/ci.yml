@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: 'pip'  # Cache pip dependencies for faster builds
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -27,20 +27,6 @@ jobs:
 
       - name: Lint
         run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        continue-on-error: false  # Fail the build on linting errors
 
       - name: Run tests
         run: pytest --verbose --tb=short
-
-      - name: Upload coverage (optional)
-        if: always()
-        run: |
-          pip install pytest-cov
-          pytest --cov=. --cov-report=xml
-          
-      - name: Upload coverage to Codecov (optional)
-        if: always()
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
