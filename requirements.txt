@@ -3,3 +3,4 @@ torch-geometric
 networkx
 matplotlib
 numpy
+pytest
