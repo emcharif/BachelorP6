@@ -2,18 +2,25 @@ import torch
 
 def printResults():
     data_list = [
-        "data-0002-0000",
-        "data-0002-0001",
-        "data-0002-0002",
-        "data-0002-0003",
-        "data-0004-0000"
+        "graph_dataset/graph_dataset/data-0002-0000",
+        "graph_dataset/graph_dataset/data-0002-0001",
+        "graph_dataset/graph_dataset/data-0002-0002",
+        "graph_dataset/graph_dataset/data-0002-0003",
+        "graph_dataset/graph_dataset/data-0004-0000"
+    ]
+
+    poisoned_data_list = [
+        "poisoned_dataset/data-0002-0000",
+        "poisoned_dataset/data-0002-0001",
+        "poisoned_dataset/data-0002-0002",
+        "poisoned_dataset/data-0002-0003",
     ]
 
     dataArr = []
 
     for filename in data_list:
         data_torch = torch.load(
-            f"data/graph_dataset/graph_dataset/{filename}.pt",
+            f"data/{filename}.pt",
             weights_only=False
         )
         dataArr.append(data_torch)
