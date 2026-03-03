@@ -10,7 +10,7 @@ def load_datasets():
 
     # Load graphs and attach labels
     graphs = []
-    for f in glob.glob("src/data/graph_dataset/*.pt"):
+    for f in glob.glob("src/data/training_dataset/*.pt"):
         filename = f.split('/')[-1]
         match = labels[labels['filename'] == filename]
         if len(match) == 0:
