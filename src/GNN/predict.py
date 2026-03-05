@@ -1,16 +1,48 @@
+import glob
+import os
 import torch
-from Classifier import Classifier
+import pandas as pd
+from TemporalClassifier import TemporalClassifier
 
-graph = torch.load("src/data/training_dataset/data-0004-0000.pt", weights_only=False)
-
-model = Classifier(input_dim=11, hidden_dim=20, output_dim=3)
-model.load_state_dict(torch.load("model.pth"))
+model = TemporalClassifier(input_dim=11, hidden_dim=64, output_dim=3, num_timesteps=20)
+model.load_state_dict(torch.load("model_temporal.pth"))
 model.eval()
 
-with torch.no_grad():
-    from torch_geometric.data import Batch
-    batched = Batch.from_data_list([graph])
-    logits = model(batched)
-    predicted_class = logits.argmax(dim=1).item()
+labels = pd.read_csv("labels_density_3class.csv")
+labels['filename'] = labels['path'].apply(lambda x: os.path.basename(x))
 
-print(f"Predicted label: {predicted_class}")
+files = glob.glob("data/predict_dataset/*.pt")
+print(f"Found {len(files)} graphs to predict\n")
+
+correct = 0
+total = 0
+not_found = 0
+
+for f in files:
+    graph = torch.load(f, weights_only=False)
+
+    with torch.no_grad():
+        logits = model(graph)
+        predicted_class = logits.argmax(dim=1).item()
+
+    filename = os.path.basename(f)
+    match = labels[labels['filename'] == filename]
+
+    if len(match) == 0:
+        print(f"{filename} → Predicted: {predicted_class}, True: not found in csv")
+        not_found += 1
+        continue
+
+    true_label = match.iloc[0]['label']
+    is_correct = predicted_class == true_label
+    correct += int(is_correct)
+    total += 1
+
+    print(f"{filename} → Predicted: {predicted_class}, True: {true_label} {'✓' if is_correct else '✗'}")
+
+print(f"\n=== Results ===")
+print(f"Correct:  {correct} / {total}")
+if total > 0:
+    print(f"Accuracy: {correct/total*100:.1f}%")
+if not_found > 0:
+    print(f"Skipped:  {not_found} (not found in CSV)")
