@@ -4,11 +4,11 @@ import torch
 import pandas as pd
 from TemporalClassifier import TemporalClassifier
 
-model = TemporalClassifier(input_dim=11, hidden_dim=64, output_dim=3, num_timesteps=20)
+model = TemporalClassifier(input_dim=11, hidden_dim=128, output_dim=3, num_timesteps=20)
 model.load_state_dict(torch.load("model_temporal.pth"))
 model.eval()
 
-labels = pd.read_csv("labels_density_3class.csv")
+labels = pd.read_csv("labels_composite_3class.csv")
 labels['filename'] = labels['path'].apply(lambda x: os.path.basename(x))
 
 files = glob.glob("data/predict_dataset/*.pt")

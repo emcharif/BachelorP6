@@ -19,7 +19,7 @@ dataloader = torch.utils.data.DataLoader(
     collate_fn=identity_collate
 )
 
-model = TemporalClassifier(input_dim=11, hidden_dim=64, output_dim=3, num_timesteps=NUM_TIMESTEPS)
+model = TemporalClassifier(input_dim=11, hidden_dim=128, output_dim=3, num_timesteps=NUM_TIMESTEPS)
 
 if os.path.exists("model_temporal.pth"):
     model.load_state_dict(torch.load("model_temporal.pth"))
@@ -27,6 +27,8 @@ if os.path.exists("model_temporal.pth"):
 else:
     print("No existing model found, training from scratch...")
 
+class_weights = torch.tensor([756/371, 756/184, 756/201])
+# = tensor([2.04, 4.11, 3.76])
 opt = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 for epoch in range(50):
@@ -43,7 +45,7 @@ for epoch in range(50):
 
         logits = torch.cat(all_logits, dim=0)
         labels = torch.cat(all_labels, dim=0)
-        loss = Function.cross_entropy(logits, labels)
+        loss = Function.cross_entropy(logits, labels, weight=class_weights)
 
         opt.zero_grad()
         loss.backward()

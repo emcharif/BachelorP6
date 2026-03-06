@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 
 def load_datasets():
-    labels = pd.read_csv("labels_flow_3class.csv")
+    labels = pd.read_csv("labels_composite_3class.csv")
     labels['filename'] = labels['path'].apply(lambda x: os.path.basename(x))
 
     graphs = []

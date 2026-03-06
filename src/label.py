@@ -67,15 +67,15 @@ def assign_label(row):
     dist   = row['mean_distance']
     rel_v  = row['mean_rel_speed']
 
-    # free flow: fast and spread out
-    if speed > 1.2 and dist > 0.0:
+ # free flow: above median speed AND not too close
+    if speed > 1.13:                          # above 75th percentile
         return 1
 
-    # transitional/dangerous: vehicles close together with high relative speeds
-    if dist < -0.3 and rel_v > 1.0:
+    # transitional: middle speed OR close vehicles with notable relative speed
+    if speed > 0.72 and rel_v > 0.87:        # above 25th speed, above median rel speed
         return 2
 
-    # congested: slow, close, low relative speed
+    # congested: slow moving, low interaction
     return 0
 
 df['label'] = df.apply(assign_label, axis=1)
