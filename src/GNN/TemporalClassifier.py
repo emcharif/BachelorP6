@@ -21,7 +21,7 @@ class TemporalClassifier(nn.Module):
         h = Function.relu(self.conv1(vehicle_x, edge_index))        #pass all vehicle nodes through hidden layer 1, shape: [vehicle nodes, 64] | each node aggregates attributes from neighbors via edges
         h = Function.relu(self.conv2(h, edge_index))                #does it again, but with hidden layer 2
 
-        ptr   = data.vehicle.ptr                                    #indicates where each timesteps node start and end, shape: [0,0,0,1,1,2,2]
+        ptr   = data.vehicle.ptr                                    #indicates where each timesteps node start and end, shape: [0, 8, 14...149], dvs. timestep 0 = 0-7 vehicle nodes
         vehicle_nodes_pr_timestep = ptr[1:] - ptr[:-1]              #indicates how many vehicle nodes pr timestep, size: 20 -> cause 20 timesteps
         timestep_batch = torch.repeat_interleave(torch.arange(len(vehicle_nodes_pr_timestep), device=vehicle_x.device), vehicle_nodes_pr_timestep) #expander index by size, if timestep 0 has 3 vehicle nodes og timestep 1 has 4 vehicle nodes -> [0,0,0,1,1,1,1]
 
