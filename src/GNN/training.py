@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as Function
 from TemporalClassifier import TemporalClassifier
 from load_datasets import load_datasets
+import os
 
 NUM_TIMESTEPS = 20
 
@@ -19,10 +20,19 @@ dataloader = torch.utils.data.DataLoader(
 )
 
 model = TemporalClassifier(input_dim=11, hidden_dim=64, output_dim=3, num_timesteps=NUM_TIMESTEPS)
-opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-for epoch in range(30):
+if os.path.exists("model_temporal.pth"):
+    model.load_state_dict(torch.load("model_temporal.pth"))
+    print("Loaded existing model, continuing training...")
+else:
+    print("No existing model found, training from scratch...")
+
+opt = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+for epoch in range(50):
     total_loss = 0
+    correct = 0
+    total = 0
     for batch in dataloader:
         all_logits = []
         all_labels = []
@@ -40,6 +50,11 @@ for epoch in range(30):
         opt.step()
         total_loss += loss.item()
 
-    print(f"Epoch {epoch:02d} | Loss: {total_loss/len(dataloader):.4f}")
+        preds = logits.argmax(dim=1)
+        correct += (preds == labels).sum().item()
+        total += labels.size(0)
+
+    print(f"Epoch {epoch:02d} | Loss: {total_loss/len(dataloader):.4f} | Accuracy: {correct/total*100:.1f}%")
 
 torch.save(model.state_dict(), "model_temporal.pth")
+print("Model saved.")
