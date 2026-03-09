@@ -2,14 +2,21 @@ import torch
 import torch.nn.functional as Function
 from TemporalClassifier import TemporalClassifier
 from load_datasets import load_datasets
-import os
 
 NUM_TIMESTEPS = 20
 
+INPUT_DIM = 11
+HIDDEN_DIM = 64
+OUTPUT_DIM = 3
+
+LEARNING_RATE = 1e-3
+
+DIMENSION = 0
+
 graphs = load_datasets()
 
-def identity_collate(batch):
-    return batch  # prevent PyG from merging internal structure
+def identity_collate(batch):                                                                       #normalt merger PyGs Dataloader graferne sammen, her siger vi altså bare at den skal returnere listen som den er 
+    return batch  
 
 dataloader = torch.utils.data.DataLoader(
     graphs,
