@@ -14,9 +14,9 @@ def load_datasets():
         match = labels[labels['filename'] == filename]
         if len(match) == 0:
             continue
-        f = os.path.join("data/training_dataset", filename)
-        g = torch.load(f, weights_only=False)
-        g.y = torch.tensor([match.iloc[0]['label']], dtype=torch.long)
-        graphs.append(g)
+        file = os.path.join("data/training_dataset", filename)
+        graph = torch.load(file, weights_only=False)
+        graph.label = torch.tensor([match.iloc[0]['label']], dtype=torch.long)
+        graphs.append(graph)
 
     return graphs
