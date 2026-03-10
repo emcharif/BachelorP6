@@ -7,11 +7,11 @@ from TemporalClassifier import TemporalClassifier
 NUM_TIMESTEPS = 20
 
 INPUT_DIM = 11
-HIDDEN_DIM = 64
+HIDDEN_DIM = 256
 OUTPUT_DIM = 3
 
 model = TemporalClassifier(input_dim = INPUT_DIM, hidden_dim = HIDDEN_DIM, output_dim = OUTPUT_DIM, num_timesteps=NUM_TIMESTEPS)
-model.load_state_dict(torch.load("model_temporal.pth"))
+model.load_state_dict(torch.load("model_temporal_256.pth"))
 model.eval()
 
 labels = pd.read_csv("labels_composite_3class.csv")

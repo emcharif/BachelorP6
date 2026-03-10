@@ -7,7 +7,7 @@ from load_datasets import load_datasets
 NUM_TIMESTEPS = 20
 
 INPUT_DIM = 11
-HIDDEN_DIM = 64
+HIDDEN_DIM = 128
 OUTPUT_DIM = 3
 
 LEARNING_RATE = 1e-4
@@ -29,8 +29,8 @@ dataloader = torch.utils.data.DataLoader(
 #laver modelen, det er egenligt her den laver weights fra layer til layer, alle random fra start
 model = TemporalClassifier(input_dim=INPUT_DIM, hidden_dim=HIDDEN_DIM, output_dim=OUTPUT_DIM, num_timesteps=NUM_TIMESTEPS) 
 # hvis der allerede er en model, så load den og fortsæt træningen, ellers start forfra
-if os.path.exists("model_temporal.pth"):
-    model.load_state_dict(torch.load("model_temporal.pth"))
+if os.path.exists("model_temporal_128.pth"):
+    model.load_state_dict(torch.load("model_temporal_128.pth"))
     print("Loaded existing model, continuing training...")
 else:
     print("No existing model found, training from scratch...")
