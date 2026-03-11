@@ -1,25 +1,7 @@
 from typing import Dict
 import numpy as np
 import torch
-
-# ============================================================================
-# MAIN WATERMARK CLASS
-# ============================================================================
-
-class TriangleConvoyWatermark:
-    """
-    Watermarking via statistically unlikely triangle formation.
-    
-    This watermark injects 3 vehicles that maintain a perfect equilateral
-    triangle formation throughout the temporal sequence.
-    
-    Attributes:
-        triangle_side: Side length of equilateral triangle (meters)
-        offset: Distance from main traffic to place formation (meters)
-        velocity_offset: Speed difference from average traffic (m/s)
-        watermark_id_start: Starting ID for watermark vehicles
-        height: Calculated height of the equilateral triangle
-    """
+class DynamicWatermark:
     
     def __init__(
         self,
@@ -44,13 +26,6 @@ class TriangleConvoyWatermark:
         return
 
 if __name__ == "__main__":
-    watermark = TriangleConvoyWatermark(
-        triangle_side_length=15.0,
-        offset_from_road_center=20.0,
-        velocity_offset=0.5,
-        watermark_id_start=999000
-    )
-    
     input_files = [
         "data/graph_dataset/graph_dataset/data-0002-0000.pt",
         "data/graph_dataset/graph_dataset/data-0002-0001.pt",
