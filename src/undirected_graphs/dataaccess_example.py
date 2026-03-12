@@ -51,7 +51,7 @@ print(f"  graph.y = {graph.y}  (label)")
 
 # Check what attributes exist
 print(f"\nAll available attributes:")
-for key in graph.keys:
+for key in graph.keys():
     value = graph[key]
     if isinstance(value, torch.Tensor):
         print(f"  {key}: {value.shape} ({value.dtype})")
