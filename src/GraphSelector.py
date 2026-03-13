@@ -24,12 +24,7 @@ class GraphSelector:
         selected_indices = indices[:number_of_graphs]
 
         selected_graphs = []
-        for i in range(len(selected_indices)):
+        for i in selected_indices:
             selected_graphs.append(dataset[i])
 
         return selected_graphs
-
-selector = GraphSelector(secret_key=os.getenv("SECRET_KEY"), percentage=0.05)
-
-graphs_to_watermark = selector.get_graphs("REDDIT-BINARY")
-print(graphs_to_watermark)
