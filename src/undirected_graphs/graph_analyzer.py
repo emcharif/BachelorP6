@@ -1,4 +1,6 @@
-from utils import UtilityFunctions
+from torch.mtia import graph
+
+from src.undirected_graphs.utils import UtilityFunctions
 
 class GraphAnalyzer:    
     def main(self):
