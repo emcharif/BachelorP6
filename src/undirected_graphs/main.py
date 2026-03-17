@@ -3,9 +3,13 @@ from graph_analyzer import GraphAnalyzer
 
 class Main:
     def main(self):
-        analyzer = GraphAnalyzer()
 
-        dataset = UtilityFunctions.load_dataset(root="data/MUTAG", name="MUTAG", use_node_attr=True)   
+        # Create instances for the classes that are used
+        analyzer = GraphAnalyzer()
+        utilityFunctions = UtilityFunctions()
+
+        # Load dataset
+        dataset = utilityFunctions.load_dataset(root="data/MUTAG", name="MUTAG", use_node_attr=True)   
         chain_distribution = {}
 
         for single_graph in dataset:

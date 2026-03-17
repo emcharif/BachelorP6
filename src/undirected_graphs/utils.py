@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
+    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
         """returns graph data
         
         Keyword arguments:
