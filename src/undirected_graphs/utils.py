@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
+    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
         """returns graph data
         
         Keyword arguments:
@@ -53,8 +53,7 @@ class UtilityFunctions:
         edge_node = current_node
         return length, edge_node
     
-    @staticmethod
-    def select_dangling_node(dangling_chain: list[tuple[int, int, int]]):
+    def select_dangling_node(self, dangling_chain: list[tuple[int, int, int]]):
         """
         Args:
             danglin_chain: a list of tuples. First index = node id, second index = length,

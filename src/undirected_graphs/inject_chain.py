@@ -7,7 +7,7 @@ def inject_chain(graph, chain_length, is_binary):
     graphAnalyzer = GraphAnalyzer()
    
     # Get tuple of (source, target) edges of graph
-    graph, chain_starts,edges, neighbors = graphAnalyzer.search_graph(graph)
+    graph, chain_starts,edges, neighbors, chain_lengths = graphAnalyzer.search_graph(graph)
 
     # Get list of dangling nodes and their lengths
     danling_nodes_lenths = []

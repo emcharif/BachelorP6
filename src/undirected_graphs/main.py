@@ -1,0 +1,19 @@
+from utils import UtilityFunctions
+from graph_analyzer import GraphAnalyzer
+
+class Main:
+    def main(self):
+
+        # Create instances for the classes that are used
+        graphAnalyzer = GraphAnalyzer()
+        utilityFunctions = UtilityFunctions()
+
+        # Load dataset
+        dataset = utilityFunctions.load_dataset(root="data/MUTAG", name="MUTAG", use_node_attr=True)   
+
+        for single_graph in dataset:
+            graph, chain_starts, edges, neighbors, chain_lengths = graphAnalyzer.search_graph(single_graph)
+            print(chain_lengths)
+
+main = Main()
+main.main()
