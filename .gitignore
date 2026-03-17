@@ -7,3 +7,4 @@ __pycache__/
 src/undirected_graphs/__pycache__/utils.cpython-310.pyc
 *__pycache__
 .pytest_cache
+.env
