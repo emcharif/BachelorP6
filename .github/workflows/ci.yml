@@ -22,8 +22,7 @@ jobs:
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install torch torch-geometric networkx matplotlib numpy
-          pip install pytest ruff
+          pip install -r requirements.txt
 
       - name: Lint
         run: ruff check .
