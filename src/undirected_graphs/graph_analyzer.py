@@ -1,6 +1,6 @@
 from torch.mtia import graph
 
-from utils import UtilityFunctions
+from src.undirected_graphs.utils import UtilityFunctions
 
 class GraphAnalyzer:    
     def main(self):
@@ -57,13 +57,8 @@ class GraphAnalyzer:
             # Behold kun cluster-siden som chain start
             chain_starts.append(current)
 
-        return {
-            "graph_index": graph,
-            "amount_dangling_nodes": len(chain_starts),
-            "danling_nodes": chain_starts,
-            "edges": edges,
-            "neighbors": neighbors
-        }
+        return graph, chain_starts,edges, neighbors
+        
     
     
 analyzer = GraphAnalyzer()

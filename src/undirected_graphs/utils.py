@@ -17,8 +17,14 @@ class UtilityFunctions:
         return TUDataset(root=f'{root}', name=f'{name}')
     
     def get_dangling_chain_length(self, startnode, neighbors):
+        """returns the length of the dangling chain starting at startnode
+        Keyword arguments:        startnode: the node id of the dangling node
+        neighbors: a dict with node id as key and a set of neighboring node ids as value
+        Return: length of the dangling chain starting at startnode
+        """
         length = 1
         current_node = startnode
+        edge_node = None
         
         # Set previous_node to the neighbor with the most neighbors (the cluster), so we can ignore it in the while loop
         nbrs = list(neighbors[startnode])
@@ -44,12 +50,15 @@ class UtilityFunctions:
             current_node = next_node
             length += 1
         
-        return length
+        edge_node = current_node
+        return length, edge_node
     
-    def select_dangling_node(dangling_chain: list[tuple[int, int]]):
+    @staticmethod
+    def select_dangling_node(dangling_chain: list[tuple[int, int, int]]):
         """
         Args:
-            danglin_chain: a list of tuples. First index = node id, second index = length
+            danglin_chain: a list of tuples. First index = node id, second index = length,
+            third index = edge node id   
         Returns:
             a seeded tuple from the list based off secret key
         """
