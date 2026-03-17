@@ -4,4 +4,4 @@ networkx
 matplotlib
 numpy
 pytest
-dotenv
+python-dotenv
