@@ -1,11 +1,5 @@
-from src.undirected_graphs.utils import UtilityFunctions
 
 class GraphAnalyzer:    
-    def main(self):
-        dataset = UtilityFunctions.load_dataset(root="data/DD", name="DD", use_node_attr=True)   
-        graph = dataset[4]
-        self.search_graph(graph)
-
     def search_graph(self, graph):
         total_edges = graph.edge_index
         source_nodes_list = total_edges[0].tolist()
@@ -52,12 +46,21 @@ class GraphAnalyzer:
             visited_chains.add(current)
             chain_starts.append(current)
 
-        print(chain_starts)
-        print(edges)
-        print(neighbors)
+        chain_lengths = {}
 
-        return graph, chain_starts,edges, neighbors
+        for start in chain_starts:
+            length = 1
+            previous = next(n for n in neighbors[start] if len(neighbors[n]) > 2)
+            current = start
 
+            while True:
+                nbrs = [n for n in neighbors[current] if n != previous]
+                if not nbrs:
+                    break
+                previous = current
+                current = nbrs[0]
+                length += 1
 
-analyzer = GraphAnalyzer()
-analyzer.main()
+            chain_lengths[start] = length
+
+        return graph, chain_starts, edges, neighbors, chain_lengths
