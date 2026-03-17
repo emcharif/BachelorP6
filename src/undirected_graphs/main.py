@@ -5,7 +5,7 @@ class Main:
     def main(self):
 
         # Create instances for the classes that are used
-        analyzer = GraphAnalyzer()
+        graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
 
         # Load dataset
@@ -13,7 +13,7 @@ class Main:
         chain_distribution = {}
 
         for single_graph in dataset:
-            graph, chain_starts, edges, neighbors, chain_lengths = analyzer.search_graph(single_graph)
+            graph, chain_starts, edges, neighbors, chain_lengths = graphAnalyzer.search_graph(single_graph)
             print(chain_lengths)
 
 main = Main()
