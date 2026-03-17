@@ -10,7 +10,6 @@ class Main:
 
         # Load dataset
         dataset = utilityFunctions.load_dataset(root="data/MUTAG", name="MUTAG", use_node_attr=True)   
-        chain_distribution = {}
 
         for single_graph in dataset:
             graph, chain_starts, edges, neighbors, chain_lengths = graphAnalyzer.search_graph(single_graph)
