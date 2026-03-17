@@ -18,7 +18,7 @@ def test_inject_chain_baseCase():
 
     # Call the inject_chain function
     modified_graph = inject_chain(graph, chain_length, is_binary=False)
-    graph, chain_starts,edges, neighbors = GraphAnalyzer().search_graph(modified_graph)
+    graph, chain_starts,edges, neighbors, chain_lengths = GraphAnalyzer().search_graph(modified_graph)
     dangling_nodes = chain_starts
         # Check if the chain was injected correctly
     lengths = []
@@ -43,7 +43,7 @@ def test_inject_chain_noDanglingNodes():
 
     # Call the inject_chain function
     modified_graph = inject_chain(graph, chain_length, is_binary=False)
-    graph, chain_starts,edges, neighbors = GraphAnalyzer().search_graph(modified_graph)
+    graph, chain_starts,edges, neighbors, chain_lengths = GraphAnalyzer().search_graph(modified_graph)
     dangling_nodes = chain_starts
     
     # Check if the chain was injected correctly
