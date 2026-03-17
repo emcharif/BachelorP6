@@ -12,7 +12,5 @@ class Main:
             graph, chain_starts, edges, neighbors, chain_lengths = analyzer.search_graph(single_graph)
             print(chain_lengths)
 
-
-
 main = Main()
 main.main()
