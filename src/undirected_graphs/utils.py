@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(root="data/REDDIT-BINARY", name="REDDIT-BINARY"):
+    def load_dataset(root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
         """returns graph data
         
         Keyword arguments:
@@ -14,7 +14,7 @@ class UtilityFunctions:
         Use those to decide on the root directory where the data is found and the name of the file.
         Return: graph data
         """
-        return TUDataset(root=f'{root}', name=f'{name}')
+        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True)
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
