@@ -1,68 +1,62 @@
-from torch.mtia import graph
-
 from src.undirected_graphs.utils import UtilityFunctions
 
 class GraphAnalyzer:    
     def main(self):
-        dataset = UtilityFunctions.load_dataset(root="data/REDDIT-BINARY", name="REDDIT-BINARY")
-        graph = dataset[0]
+        dataset = UtilityFunctions.load_dataset(root="data/DD", name="DD", use_node_attr=True)   
+        graph = dataset[4]
         self.search_graph(graph)
 
     def search_graph(self, graph):
         total_edges = graph.edge_index
         source_nodes_list = total_edges[0].tolist()
         dist_nodes_list = total_edges[1].tolist()
-        nodes_that_contain_dangling_chains = []
-        dangling_nodes_distribution = {}
+
         edges = []
-        count_of_edges = {}
-
         for index in range(len(source_nodes_list)):
-            source_node = source_nodes_list[index]
-            dist_node = dist_nodes_list[index]
-            edges.append((source_node, dist_node))
+            edges.append((source_nodes_list[index], dist_nodes_list[index]))
 
-        adjacency = {}
-        for source, dest in edges:
-            if source not in adjacency:
-                adjacency[source] = set()
-            if dest not in adjacency:
-                adjacency[dest] = set()
-            adjacency[source].add(dest)
-            adjacency[dest].add(source)
+        # Build undirected neighbors dict
+        neighbors = {}
+        for src, dst in edges:
+            if src not in neighbors:
+                neighbors[src] = set()
+            if dst not in neighbors:
+                neighbors[dst] = set()
+            neighbors[src].add(dst)
+            neighbors[dst].add(src)
 
-        for node in adjacency:
-            count_of_edges[node] = len(adjacency[node])
+        # Find all dangling nodes — nodes with only one unique neighbor
+        all_dangling = set(node for node, nbrs in neighbors.items() if len(nbrs) == 1)
 
-        for index in count_of_edges:
-            if count_of_edges[index] == 1:
-                nodes_that_contain_dangling_chains.append(index)
+        # Traverse each chain and find both ends
+        chain_starts = []
+        visited_chains = set()
 
-        # Walk inward from each leaf until a branching node
-        for leaf in nodes_that_contain_dangling_chains:
-            length = 0
-            current = leaf
+        for node in all_dangling:
+            if node in visited_chains:
+                continue
+
+            current = node
             previous = None
-
             while True:
-                length += 1
-                if count_of_edges[current] != 2:
+                nbrs = [n for n in neighbors[current] if n != previous]
+                if len(nbrs) == 0:
                     break
-                next_node = next(n for n in adjacency[current] if n != previous)
+                next_node = nbrs[0]
+                if len(neighbors[next_node]) > 2:
+                    break
                 previous = current
                 current = next_node
 
-            dangling_nodes_distribution[leaf] = length
+            visited_chains.add(node)
+            visited_chains.add(current)
+            chain_starts.append(current)
 
-        print(dangling_nodes_distribution)
+        print(chain_starts)
+        print(edges)
+        print(neighbors)
 
-        return {
-            "graph": graph,
-            "amount_dangling_nodes": len(nodes_that_contain_dangling_chains),
-            "list_of_dangling_nodes": nodes_that_contain_dangling_chains,
-            "dangling_nodes_distribution": dangling_nodes_distribution,
-            "edges": edges
-        }
+        return graph, chain_starts,edges, neighbors
 
 
 analyzer = GraphAnalyzer()
