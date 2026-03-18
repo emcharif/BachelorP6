@@ -1,6 +1,7 @@
 from torch_geometric.datasets import TUDataset
 import os
 import random
+import torch
 
 from dotenv import load_dotenv
 
