@@ -26,4 +26,9 @@ class GraphSelector:
         for i in selected_indices:
             selected_graphs.append(dataset[i])
 
-        return selected_graphs
+        unselected_graphs = []
+        for i in range(len(dataset)):
+            if i not in selected_indices:
+                unselected_graphs.append(dataset[i])
+
+        return selected_graphs, unselected_graphs

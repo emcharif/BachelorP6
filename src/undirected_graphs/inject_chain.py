@@ -60,8 +60,8 @@ def inject_chain(graph, chain_length, is_binary):
                 new_edge_features = existing_edge_features.clone().unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_features, new_edge_features], dim=0)
             else:
-                deviations_a = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.02)
-                deviations_b = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.02)
+                deviations_a = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.03)
+                deviations_b = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.03)
                 new_edge_a = (existing_edge_features * deviations_a).unsqueeze(0)
                 new_edge_b = (existing_edge_features * deviations_b).unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_a, new_edge_b], dim=0)
@@ -71,11 +71,3 @@ def inject_chain(graph, chain_length, is_binary):
         edge_node = new_node_id
         current_length += 1
     return graph
-
-    
-
-    
-
-
-
-    

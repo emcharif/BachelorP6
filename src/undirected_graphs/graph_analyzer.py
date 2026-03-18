@@ -1,3 +1,4 @@
+from src.undirected_graphs.utils import UtilityFunctions
 
 class GraphAnalyzer:    
     def search_graph(self, graph):
@@ -64,3 +65,13 @@ class GraphAnalyzer:
             chain_lengths[start] = length
 
         return graph, chain_starts, edges, neighbors, chain_lengths
+    
+    def get_global_chain_length(self, dataset):
+        max_length = 0
+        for graph in dataset:
+            _, chain_starts, _, neighbors, _ = self.search_graph(graph)
+            for node in chain_starts:
+                length, _ = UtilityFunctions().get_dangling_chain_length(node, neighbors)
+                if length > max_length:
+                    max_length = length
+        return max_length + 1

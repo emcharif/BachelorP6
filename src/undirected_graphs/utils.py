@@ -69,3 +69,12 @@ class UtilityFunctions:
         rng.shuffle(dangling_chain)
 
         return dangling_chain[0]
+    
+    @staticmethod
+    def is_binary(dataset):
+        for graph in dataset:
+            if graph.x is not None:
+                unique_values = graph.x.unique()
+                if not torch.all((unique_values == 0) | (unique_values == 1)):
+                    return False
+        return True
