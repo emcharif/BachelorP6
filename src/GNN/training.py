@@ -1,53 +1,83 @@
 import torch
+from torch_geometric.loader import DataLoader
+from torch_geometric.datasets import TUDataset
+from src.GNN.Classifier import Classifier
 import torch.nn.functional as Function
-from TemporalClassifier import TemporalClassifier
-from load_datasets import load_datasets
 
-NUM_TIMESTEPS = 20
+#================= CONSTANTS ============================================
+DATASET_NAME = "MUTAG"
+BATCH_SIZE = 10
+TRAIN_PERCENTAGE = 0.7
+VALIDATION_PERCANTAGE = 0.15
+LEARNING_RATE = 0.001
+HIDDEN_DIMENSION = 128
+EPOCHS = 20
 
-INPUT_DIM = 11
-HIDDEN_DIM = 64
-OUTPUT_DIM = 3
+#================= LOAD DATASET and divide into categories ==============
+dataset = TUDataset(root="./data", name=DATASET_NAME)
+dataset = dataset.shuffle()
 
-LEARNING_RATE = 1e-3
+train_size = int(TRAIN_PERCENTAGE * len(dataset))
+val_size = int(VALIDATION_PERCANTAGE * len(dataset))
 
-DIMENSION = 0
+train_dataset = dataset[:train_size]
+val_dataset = dataset[train_size:train_size + val_size]
+test_dataset = dataset[train_size + val_size:]
 
-graphs = load_datasets()
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
-def identity_collate(batch):                                                                       #normalt merger PyGs Dataloader graferne sammen, her siger vi altså bare at den skal returnere listen som den er 
-    return batch  
+#================= EVALUATE MODEL =======================================
+def evaluate(model, loader):
+    model.eval()
+    correct = 0
+    total = 0
 
-dataloader = torch.utils.data.DataLoader(
-    graphs,
-    batch_size=32,
-    shuffle=True,
-    drop_last=False,
-    collate_fn=identity_collate
-)
+    with torch.no_grad():
+        for batch in loader:
+            logits = model(batch)
+            pred = logits.argmax(dim=1)
+            matches = pred == batch.y
+            matches = matches.int()     
+            num_correct_in_batch = matches.sum().item()  
+            correct += num_correct_in_batch
+            total += batch.y.size(0)
 
-model = TemporalClassifier(input_dim = INPUT_DIM, hidden_dim = HIDDEN_DIM, output_dim = OUTPUT_DIM, num_timesteps=NUM_TIMESTEPS) #laver modelen, det er egenligt her den laver weights fra layer til layer, alle random fra start
-update_weights = torch.optim.Adam(model.parameters(), lr = LEARNING_RATE)                          #bruges til at update weights
+    return correct / total
 
-for epoch in range(30):
-    total_loss = 0                                                                                 #akkumulerer gennemsnitslig loss over alle batches i én epoch
-    for batch in dataloader:                                                                       #itererer igennem en batch
-        all_logits = []                                                                            #gemmer outputs for at regne total loss ud senere
-        all_labels = []                                                                            #gemmer outputs for at regne total loss ud senere
-        for graph in batch:                                                                        #itererer igennem én graf i batchen
-            logits = model(graph)                                                                  #kører GNN for den enkelte graf og returner [1, 3], altså hvilken klasse grafen er i
-            all_logits.append(logits)                                                              #appender disse to for at kigge om det den regnede ud matcher med det aktuelle label
-            all_labels.append(graph.label)                                                             #appender disse to for at kigge om det den regnede ud matcher med det aktuelle label
+#================= SETUP MODEL ===========================================
+model = Classifier(input_dim=dataset.num_node_features, hidden_dim=HIDDEN_DIMENSION, output_dim=dataset.num_classes)
 
-        logits = torch.cat(all_logits, dim = DIMENSION)                                            #concatinates 32 logits individuelle [1,3] -> [32,3]
-        labels = torch.cat(all_labels, dim = DIMENSION)                                            #concatinates 32 labels individuelle [1] -> [32]
-        loss = Function.cross_entropy(logits, labels)                                              #måler loss for at hvor forkert den har været, den bruger softmax (kan kigges mere i dybden hvis man ønsker)
+opt = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-        update_weights.zero_grad()                                                                 #skal clear dem inden hver backward pass
-        loss.backward()                                                                            #computes gradients, går gennem hvert lag, starter med classifier -> GRU -> GCN layers
-        update_weights.step()                                                                      #først her udfører den ændringen af weights
-        total_loss += loss.item()                                                                  #genererer total loss af denne epoch
+#================= TRAINING LOOP =========================================
+for epoch in range(EPOCHS):
+    model.train()
+    total_loss = 0
 
-    print(f"Epoch {epoch:02d} | Loss: {total_loss/len(dataloader):.4f}")
+    for batch in train_loader:
+        logits = model(batch)
+        loss = Function.cross_entropy(logits, batch.y)
 
-torch.save(model.state_dict(), "model_temporal.pth")
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        total_loss += loss.item()
+
+    train_acc = evaluate(model, train_loader)
+    val_acc = evaluate(model, val_loader)
+
+    print(
+        f"Epoch {epoch:02d} | "
+        f"Loss: {total_loss / len(train_loader):.4f} | "
+        f"Train Acc: {train_acc:.4f} | "
+        f"Val Acc: {val_acc:.4f}"
+    )
+
+#================= FINAL MEASUREMENTS ====================================
+test_acc = evaluate(model, test_loader)
+print(f"Final Test Accuracy: {test_acc:.4f}")
+
+torch.save(model.state_dict(), f"{DATASET_NAME}_model.pth")
