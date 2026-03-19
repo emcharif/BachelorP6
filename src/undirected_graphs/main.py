@@ -1,6 +1,9 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 import torch
 from dotenv import load_dotenv
-import os
 from src.undirected_graphs.utils import UtilityFunctions
 from src.GraphSelector import GraphSelector
 from src.undirected_graphs.graph_analyzer import GraphAnalyzer
@@ -44,6 +47,6 @@ class Main:
             
 
 
-
-main = Main()
-main.main()
+if __name__ == "__main__":
+    main = Main()
+    main.main()
