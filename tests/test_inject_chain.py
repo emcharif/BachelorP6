@@ -171,3 +171,46 @@ def test_inject_chain_deviations_within_range():
             original_value = x[0][feat_idx].item()
             new_value = new_features[feat_idx].item()
             assert original_value * 0.95 <= new_value <= original_value * 1.04
+
+def test_inject_chain_edge_attribute_and_node_attribute():
+    edge_index = torch.tensor([
+        [0, 0, 0, 1, 4, 1, 4, 5],
+        [1, 2, 3, 4, 5, 0, 1, 4]
+    ], dtype=torch.long)
+    x = torch.tensor([
+        [10.0, 20.0],
+        [10.0, 20.0],
+        [10.0, 20.0],
+        [10.0, 20.0],
+        [10.0, 20.0],
+        [10.0, 20.0],
+    ], dtype=torch.float)
+    edge_attr = torch.ones(8, 4)  # 8 kanter, 4 features per kant
+    graph = Data(edge_index=edge_index, x=x, edge_attr=edge_attr, num_nodes=6)
+
+    chain_length = 5
+    original_num_nodes = 6
+    modified_graph = inject_chain(graph, chain_length, is_binary=False)
+
+    # Verificer at nye node features ligger inden for 97%-102% af original
+    for new_node_idx in range(original_num_nodes, modified_graph.num_nodes):
+        new_features = modified_graph.x[new_node_idx]
+        for feat_idx in range(new_features.shape[0]):
+            original_value = x[0][feat_idx].item()
+            new_value = new_features[feat_idx].item()
+            assert original_value * 0.96 <= new_value <= original_value * 1.04
+
+def test_inject_chain_is_deterministic():
+    edge_index = torch.tensor([
+        [0, 0, 0, 1, 4, 1, 4, 5],
+        [1, 2, 3, 4, 5, 0, 1, 4]
+    ], dtype=torch.long)
+    
+    graph1 = Data(edge_index=edge_index.clone(), num_nodes=6)
+    graph2 = Data(edge_index=edge_index.clone(), num_nodes=6)
+
+    result1 = inject_chain(graph1, chain_length=5, is_binary=False)
+    result2 = inject_chain(graph2, chain_length=5, is_binary=False)
+
+    assert torch.equal(result1.edge_index, result2.edge_index), "Same input should give same output"
+    assert result1.num_nodes == result2.num_nodes

@@ -1,7 +1,7 @@
 import torch
 from unittest.mock import MagicMock
 
-from src.GNN.Classifier import Classifier
+from src.undirected_graphs.GNN.Classifier import Classifier
 
 # ================= CONSTANTS ============================================
 INPUT_DIM = 7
