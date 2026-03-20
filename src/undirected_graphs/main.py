@@ -40,6 +40,11 @@ class Main:
             modified_graph = inject_chain(graph, global_chain_length, is_binary)
             watermarked_graphs.append(modified_graph)
 
+        # Set num_nodes for unselected graphs
+        for graph in unselected_graphs:
+            graph.num_nodes = graph.x.shape[0] if graph.x is not None else int(graph.edge_index.max()) + 1
+
+
         # Combine watermarked and unselected graphs to create the complete dataset
         watermarked_dataset = watermarked_graphs + unselected_graphs
         print("WATERMARKED: ", watermarked_dataset[0])

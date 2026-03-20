@@ -27,18 +27,23 @@ class Trainer:
 
         if isinstance(dataset, list):
             random.shuffle(dataset)
+            # Hent dims fra første graf i listen
+            inferred_input_dim  = dataset[0].x.shape[1] if dataset[0].x is not None else 0
+            inferred_output_dim = int(max(g.y.item() for g in dataset)) + 1
         else:
             dataset = dataset.shuffle()
+            inferred_input_dim  = dataset.num_node_features
+            inferred_output_dim = dataset.num_classes
 
         train_size = int(self.train_pct * len(dataset))
-        val_size = int(self.val_pct * len(dataset))
+        val_size   = int(self.val_pct   * len(dataset))
 
-        self.train_loader = DataLoader(dataset[:train_size], batch_size=self.batch_size, shuffle=True)
-        self.val_loader   = DataLoader(dataset[train_size:train_size + val_size], batch_size=self.batch_size)
-        self.test_loader  = DataLoader(dataset[train_size + val_size:], batch_size=self.batch_size)
+        self.train_loader = DataLoader(dataset[:train_size],                        batch_size=self.batch_size, shuffle=True)
+        self.val_loader   = DataLoader(dataset[train_size:train_size + val_size],   batch_size=self.batch_size)
+        self.test_loader  = DataLoader(dataset[train_size + val_size:],             batch_size=self.batch_size)
 
-        self.input_dim  = input_dim  if input_dim  is not None else dataset.num_node_features
-        self.output_dim = output_dim if output_dim is not None else dataset.num_classes
+        self.input_dim  = input_dim  if input_dim  is not None else inferred_input_dim
+        self.output_dim = output_dim if output_dim is not None else inferred_output_dim
 
     def evaluate(self, loader):
         self.model.eval()
