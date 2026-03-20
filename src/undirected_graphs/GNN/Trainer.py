@@ -23,7 +23,7 @@ class Trainer:
 
     def load_data(self, dataset=None, input_dim=None, output_dim=None):
         if dataset is None:
-            dataset = TUDataset(root="./data", name=self.dataset_name)
+            dataset = TUDataset(root="/data", name=self.dataset_name)
 
         if isinstance(dataset, list):
             random.shuffle(dataset)
