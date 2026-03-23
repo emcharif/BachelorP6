@@ -1,5 +1,5 @@
 import torch
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from torch_geometric.data import Data
 
 from src.undirected_graphs.GNN.Trainer import Trainer

@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-import torch
 from dotenv import load_dotenv
 from src.undirected_graphs.utils import UtilityFunctions
 from src.GraphSelector import GraphSelector
