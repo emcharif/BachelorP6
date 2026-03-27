@@ -3,15 +3,15 @@ import random
 import os
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
-from src.undirected_graphs.GNN.Classifier import Classifier
+from GNN.Classifier import Classifier
 from dotenv import load_dotenv
 import torch.nn.functional as Function
 
 
 class Trainer:
-    def __init__(self, dataset_name, batch_size=32, train_pct=0.80, val_pct=0.10, learning_rate=0.001, hidden_dim=128, epochs=50):
+    def __init__(self, dataset: list, batch_size=32, train_pct=0.80, val_pct=0.10, learning_rate=0.001, hidden_dim=128, epochs=50):
 
-        self.dataset_name  = dataset_name
+        self.dataset       = dataset
         self.batch_size    = batch_size
         self.train_pct     = train_pct
         self.val_pct       = val_pct
@@ -24,31 +24,26 @@ class Trainer:
         self.val_loader    = None
         self.test_loader   = None
 
-    def load_data(self, dataset=None):
+        self.organize_dataset()
+
+    def organize_dataset(self):
 
         load_dotenv()
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        if isinstance(dataset, list):
-            rng.shuffle(dataset)
+        rng.shuffle(self.dataset)
 
-            self.input_dim  = dataset[0].x.shape[1] if dataset[0].x is not None else 0
-            self.output_dim = int(max(graph.y.item() for graph in dataset)) + 1 # +1 because of 0 indexing
-        else:
-            indices = list(range(len(dataset)))
-            rng.shuffle(indices)
-            dataset = dataset[indices]
+        self.input_dim  = self.dataset[0].vehicle.x.shape[1]
+        #self.output_dim = int(max(graph.y.item() for graph in self.dataset)) + 1 # +1 because of 0 indexing
+        self.output_dim = 3 #temporary
 
-            self.input_dim  = dataset.num_node_features
-            self.output_dim = dataset.num_classes
+        train_size = int(self.train_pct * len(self.dataset))
+        val_size   = int(self.val_pct   * len(self.dataset))
 
-        train_size = int(self.train_pct * len(dataset))
-        val_size   = int(self.val_pct   * len(dataset))
-
-        self.train_loader = DataLoader(dataset[:train_size],                      batch_size=self.batch_size, shuffle=True)
-        self.val_loader   = DataLoader(dataset[train_size:train_size + val_size], batch_size=self.batch_size)
-        self.test_loader  = DataLoader(dataset[train_size + val_size:],           batch_size=self.batch_size)
+        self.train_loader = torch.utils.data.DataLoader(self.dataset[:train_size], batch_size=self.batch_size, shuffle=True, drop_last=False, collate_fn=identity_collate)
+        self.val_loader = torch.utils.data.DataLoader(self.dataset[train_size:train_size + val_size], batch_size=self.batch_size, drop_last=False, collate_fn=identity_collate)
+        self.test_loader = torch.utils.data.DataLoader(self.dataset[train_size + val_size:], batch_size=self.batch_size, drop_last=False, collate_fn=identity_collate)
 
     def evaluate(self, loader):
         self.model.eval()
@@ -56,21 +51,38 @@ class Trainer:
         total   = 0
         with torch.no_grad():
             for batch in loader:
-                pred = self.model(batch).argmax(dim=1)
-                correct += (pred == batch.y).sum().item()
-                total += batch.y.size(0)
+                all_logits = []
+                all_labels = []
+                for graph in batch:
+                    all_logits.append(self.model(graph))
+                    all_labels.append(graph.y)
+                pred = torch.cat(all_logits, dim=0).argmax(dim=1)
+                labels = torch.stack(all_labels).squeeze(1)
+                correct += (pred == labels).sum().item()
+                total += labels.size(0)
         return correct / total
 
     def train(self, enable_prints = False):
-        self.model = Classifier(self.input_dim, self.hidden_dim, self.output_dim)
+        num_timesteps = len(self.dataset[0].vehicle.ptr) - 1
+
+        self.model = Classifier(self.input_dim, self.hidden_dim, self.output_dim, num_timesteps=num_timesteps)
         opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         for epoch in range(self.epochs):
             self.model.train()
             total_loss = 0
             for batch in self.train_loader:
-                logits = self.model(batch)
-                loss = Function.cross_entropy(logits, batch.y)
+                all_logits = []
+                all_labels = []
+                for graph in batch:                  
+                    logits = self.model(graph)
+                    all_logits.append(logits)
+                    all_labels.append(graph.y)
+
+                logits = torch.cat(all_logits, dim=0)
+                labels = torch.stack(all_labels).squeeze(1)
+
+                loss = Function.cross_entropy(logits, labels)
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
@@ -103,4 +115,7 @@ class Trainer:
                 conf = probs.max(dim=1).values.item()
                 predictions.append(pred)
                 confidences.append(conf)
-        return predictions, confidences
+        return predictions, 
+
+def identity_collate(batch):                                                                       #normalt merger PyGs Dataloader graferne sammen, her siger vi altså bare at den skal returnere listen som den er 
+    return batch 
