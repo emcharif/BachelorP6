@@ -24,7 +24,7 @@ def test_forward_pass():                                                        
     model = TemporalClassifier(input_dim = INPUT_DIM, hidden_dim = HIDDEN_DIM, output_dim = OUTPUT_DIM, num_timesteps=NUM_TIMESTEPS)
     graph = torch.load(os.path.join("tests/test_data/data-0002-0001.pt"), weights_only=False)
     try:
-        logits = model(graph)
+        model(graph)
     except Exception as e:
         assert False, f"Forward pass failed: {e}"
 

@@ -46,7 +46,6 @@ for file in files:
 
     print(f"{filename} → Predicted: {predicted_class}, True: {true_label} {'✓' if is_correct else '✗'}")
 
-print(f"\n=== Results ===")
 print(f"Correct:  {correct} / {total}")
 if total > 0:
     print(f"Accuracy: {correct/total*100:.1f}%")
