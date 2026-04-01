@@ -1,3 +1,6 @@
 venv
 .venv
 data
+**/__pycache___/
+.ruff_cache
+.pytest_cache
