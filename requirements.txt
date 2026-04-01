@@ -5,3 +5,5 @@ matplotlib
 numpy
 pytest
 libsumo
+python-dotenv
+ruff
