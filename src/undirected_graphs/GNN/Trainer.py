@@ -9,7 +9,7 @@ import torch.nn.functional as Function
 
 
 class Trainer:
-    def __init__(self, dataset: list, batch_size=32, train_pct=0.80, val_pct=0.10, learning_rate=0.001, hidden_dim=128, epochs=50):
+    def __init__(self, dataset: list, batch_size=32, train_pct=0.70, val_pct=0.15, learning_rate=0.001, hidden_dim=64, epochs=30):
 
         self.dataset       = dataset
         self.batch_size    = batch_size
@@ -96,7 +96,7 @@ class Trainer:
                     f"Val Acc: {self.evaluate(self.val_loader):.4f}"
                 )
 
-    def get_model(self, modeltype):
+    def get_model(self, modeltype=None):
         print(f"Final Test Accuracy {modeltype}: {self.evaluate(self.test_loader):.4f}")
         #torch.save(self.model.state_dict(), f"{self.dataset_name}{modeltype}_model.pth")
 
