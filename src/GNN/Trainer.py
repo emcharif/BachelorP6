@@ -1,7 +1,6 @@
 import torch
 import random
 import os
-from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 from Classifier import Classifier
 from dotenv import load_dotenv
@@ -97,7 +96,7 @@ class Trainer:
                 )
 
     def get_model(self, modeltype=None):
-        print(f"Final Test Accuracy {modeltype}: {self.evaluate(self.test_loader):.4f}")
+        print(f"Final Test Accuracy (modeltype:{modeltype}): {self.evaluate(self.test_loader):.4f}")
         #torch.save(self.model.state_dict(), f"{self.dataset_name}{modeltype}_model.pth")
 
         return self.model
