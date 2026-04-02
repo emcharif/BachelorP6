@@ -2,20 +2,22 @@ from torch_geometric.datasets import TUDataset
 import os
 import random
 import torch
+import glob
 
 from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
-        """returns graph data
-        
-        Keyword arguments:
-        For the TUDataset method there are two params: root and name.
-        Use those to decide on the root directory where the data is found and the name of the file.
-        Return: graph data
+    def load_dataset(self, path_to_files: str = "data/cars/"):
         """
-        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True)
+        Arg:    the path to your files to load
+        Return: graph data in a list
+        """
+        dataset = []
+        for file in glob.glob(f"{path_to_files}*.pt"):
+            dataset.append(torch.load(file, weights_only = False))
+
+        return dataset
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
@@ -70,12 +72,3 @@ class UtilityFunctions:
         rng.shuffle(dangling_chain)
 
         return dangling_chain[0]
-    
-    @staticmethod
-    def is_binary(dataset):
-        for graph in dataset:
-            if graph.x is not None:
-                unique_values = graph.x.unique()
-                if not torch.all((unique_values == 0) | (unique_values == 1)):
-                    return False
-        return True
