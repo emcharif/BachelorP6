@@ -2,7 +2,7 @@ import torch
 import random
 import os
 from torch_geometric.data import Batch
-from Classifier import Classifier
+from .Classifier import Classifier
 from dotenv import load_dotenv
 import torch.nn.functional as Function
 
@@ -34,8 +34,7 @@ class Trainer:
         rng.shuffle(self.dataset)
 
         self.input_dim  = self.dataset[0].vehicle.x.shape[1]
-        #self.output_dim = int(max(graph.y.item() for graph in self.dataset)) + 1 # +1 because of 0 indexing
-        self.output_dim = 3 #temporary
+        self.output_dim = int(max(graph.y.item() for graph in self.dataset)) + 1 # +1 because of 0 indexing
 
         train_size = int(self.train_pct * len(self.dataset))
         val_size   = int(self.val_pct   * len(self.dataset))
@@ -56,7 +55,7 @@ class Trainer:
                     all_logits.append(self.model(graph))
                     all_labels.append(graph.y)
                 pred = torch.cat(all_logits, dim=0).argmax(dim=1)
-                labels = torch.stack(all_labels).squeeze(1)
+                labels = torch.stack(all_labels).squeeze()
                 correct += (pred == labels).sum().item()
                 total += labels.size(0)
         return correct / total
@@ -79,7 +78,7 @@ class Trainer:
                     all_labels.append(graph.y)
 
                 logits = torch.cat(all_logits, dim=0)
-                labels = torch.stack(all_labels).squeeze(1)
+                labels = torch.stack(all_labels).squeeze()
 
                 loss = Function.cross_entropy(logits, labels)
                 opt.zero_grad()
@@ -114,7 +113,7 @@ class Trainer:
                 conf = probs.max(dim=1).values.item()
                 predictions.append(pred)
                 confidences.append(conf)
-        return predictions, 
+        return predictions, confidences
 
 def identity_collate(batch):                                                                       #normalt merger PyGs Dataloader graferne sammen, her siger vi altsÃ¥ bare at den skal returnere listen som den er 
     return batch 
