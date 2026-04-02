@@ -58,13 +58,13 @@ for f in files:
 
 df = pd.DataFrame(rows)
 
-print(f"\n=== Feature Statistics ===")
+print("\n=== Feature Statistics ===")
 print(df[['mean_speed', 'mean_distance', 'mean_rel_speed']].describe().round(4).to_string())
 
 # Assign composite labels
 def assign_label(row):
     speed  = row['mean_speed']
-    dist   = row['mean_distance']
+    #dist   = row['mean_distance']
     rel_v  = row['mean_rel_speed']
 
  # free flow: above median speed AND not too close
@@ -80,11 +80,11 @@ def assign_label(row):
 
 df['label'] = df.apply(assign_label, axis=1)
 
-print(f"\n=== Label Distribution ===")
+print("\n=== Label Distribution ===")
 counts = df['label'].value_counts().sort_index()
 names  = {0: 'Congested', 1: 'Free flow', 2: 'Transitional'}
 for label, count in counts.items():
     print(f"  {label} ({names[label]}): {count} graphs ({count/len(df)*100:.1f}%)")
 
 df.to_csv('labels_composite_3class.csv', index=False)
-print(f"\nSaved to labels_composite_3class.csv")
+print("\nSaved to labels_composite_3class.csv")
