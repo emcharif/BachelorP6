@@ -1,5 +1,5 @@
 import torch
-from data import Vehicle, Timestep, TemporalEdge, SpatialEdge
+from src.Classes.data import Vehicle, SpatialEdge, TemporalEdge, Timestep
 from typing import Optional
 
 

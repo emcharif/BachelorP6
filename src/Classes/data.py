@@ -18,8 +18,6 @@ class Vehicle:
             f"vel=({self.velocity[0]:.2f}, {self.velocity[1]:.2f}))"
         )
 
-
-
 @dataclass
 class SpatialEdge:
     source_id: int
@@ -64,3 +62,8 @@ class Timestep:
             f"temporal_edges={len(self.temporal_edges)})"
         )
 
+
+@dataclass
+class WatermarkingData:
+    temopralEdges: list[TemporalEdge]
+    
