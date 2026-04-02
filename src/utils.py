@@ -1,4 +1,3 @@
-from torch_geometric.datasets import TUDataset
 import os
 import random
 import torch
