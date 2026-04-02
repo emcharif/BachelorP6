@@ -2,6 +2,7 @@ import os
 import random
 import torch
 import glob
+import pandas as pd
 
 from dotenv import load_dotenv
 
@@ -14,9 +15,46 @@ class UtilityFunctions:
         """
         dataset = []
         for file in glob.glob(f"{path_to_files}*.pt"):
-            dataset.append(torch.load(file, weights_only = False))
+            graph = torch.load(file, weights_only=False)
+            graph.path = file  # attach path so attach_labels can use it
+            dataset.append(graph)
 
         return dataset
+    
+    def attach_labels(self, dataset: list):
+        """
+        Arg:    graph data in a list
+        Return: graph data in a list with labels attached
+        """
+        label_data = pd.read_csv("labels_composite_3class.csv")
+
+        label_map = dict(zip(label_data["filename"], label_data["label"]))
+
+        for graph in dataset:
+            filename = os.path.basename(graph.path)
+            graph.y = torch.tensor(label_map[filename], dtype=torch.long)
+
+        return dataset
+    
+    def graphs_to_watermark(self, dataset: list, percentage: float = 0.05):
+        """
+        Args:    graph data in a list, percentage of list to watermark
+        Returns: list of selected graphs and list of unselected graphs
+        """
+        dataset_copy = dataset.copy()
+
+        load_dotenv()
+        key = os.getenv("SECRET_KEY")
+        rng = random.Random(key)
+
+        rng.shuffle(dataset_copy)
+
+        number_of_graphs_to_watermark = int(len(dataset_copy) * percentage)
+
+        selected_graphs = dataset_copy[:number_of_graphs_to_watermark]
+        unselected_graphs = dataset_copy[number_of_graphs_to_watermark:]
+
+        return selected_graphs, unselected_graphs
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
