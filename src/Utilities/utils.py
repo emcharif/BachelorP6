@@ -6,7 +6,6 @@ from typing import Optional
 import pandas as pd
 import torch
 from dotenv import load_dotenv
-from torch_geometric.datasets import TUDataset
 
 
 class UtilityFunctions:
@@ -24,7 +23,8 @@ class UtilityFunctions:
             graph = torch.load(file, weights_only=False)
             graph.path = file  # attach path so attach_labels can use it
             dataset.append(graph)
-
+        
+        print(dataset[0])
         return dataset
 
 

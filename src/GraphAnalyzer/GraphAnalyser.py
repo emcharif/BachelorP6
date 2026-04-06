@@ -1,181 +1,95 @@
 import torch
-from src.Dataclasses.data import Vehicle, Timestep, TemporalEdge, SpatialEdge
-from typing import Optional
+
+# Load the file
+raw_data = torch.load("data/graph_dataset/graph_dataset/data-0005-0000.pt", weights_only=False)
 
 
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
+def get_vehicle_edges_at_timestep(raw_data, timestep: int):
+    """
+    Returns a list of tuples (source_vehicle_index, target_vehicle_index)
+    representing which vehicles are connected at a given timestep.
+    """
+
+    # ptr tells us where each timestep starts and ends in the flat node list
+    # e.g. ptr = [0, 3, 6, 10] means:
+    #   timestep 0: vehicles at index 0, 1, 2
+    #   timestep 1: vehicles at index 3, 4, 5
+    #   timestep 2: vehicles at index 6, 7, 8, 9
+    timestep_start_index = raw_data['vehicle'].ptr[timestep].item()
+    timestep_end_index   = raw_data['vehicle'].ptr[timestep + 1].item()
+
+    # edge_index is a [2, num_edges] tensor
+    # row 0 = source vehicle indices
+    # row 1 = target vehicle indices
+    all_source_indices = raw_data['vehicle', 'to', 'vehicle'].edge_index[0]
+    all_target_indices = raw_data['vehicle', 'to', 'vehicle'].edge_index[1]
+
+    # Only keep edges where both source and target belong to this timestep
+    edges_in_this_timestep = (
+        (all_source_indices >= timestep_start_index) &
+        (all_source_indices <  timestep_end_index) &
+        (all_target_indices >= timestep_start_index) &
+        (all_target_indices <  timestep_end_index)
+    )
+
+    source_indices = all_source_indices[edges_in_this_timestep]
+    target_indices = all_target_indices[edges_in_this_timestep]
+
+    # Convert to a readable list of tuples
+    edges = []
+    for i in range(len(source_indices)):
+        source = source_indices[i].item()
+        target = target_indices[i].item()
+        edges.append((source, target))
+
+    return edges
 
 
-
-# ---------------------------------------------------------------------------
-# Parser
-# ---------------------------------------------------------------------------
-
-class GraphParser:
-    """Parses a CommonRoadDataTemporal .pt file into structured Timestep objects."""
-
-    def __init__(self, path: str):
-        self.path = path
-        self.data = torch.load(path, weights_only=False)
-        self._timesteps: Optional[list[Timestep]] = None
-
-    def parse(self) -> list[Timestep]:
-        if self._timesteps is not None:
-            return self._timesteps
-
-        self._timesteps = []
-        ptr = self.data['vehicle'].ptr  # [num_timesteps + 1]
-        num_timesteps = len(ptr) - 1
-
-        for t in range(num_timesteps):
-            timestep = Timestep(t=t)
-            start, end = ptr[t].item(), ptr[t + 1].item()
-
-            timestep.vehicles      = self._parse_vehicles(start, end)
-            timestep.spatial_edges = self._parse_spatial_edges(start, end, timestep.vehicles)
-            timestep.temporal_edges = self._parse_temporal_edges(start, end, timestep.vehicles)
-
-            self._timesteps.append(timestep)
-
-        return self._timesteps
-
-    def _parse_vehicles(self, start: int, end: int) -> list[Vehicle]:
-        v = self.data['vehicle']
-        ids          = v.id[start:end].squeeze(-1).tolist()
-        positions    = v.pos[start:end].tolist()
-        orientations = v.orientation[start:end].squeeze(-1).tolist()
-        is_ego       = v.is_ego_mask[start:end].squeeze(-1).tolist()
-        x            = v.x[start:end]  # [N, 11]
-
-        vehicles = []
-        for i, (vid, pos, ori, ego) in enumerate(zip(ids, positions, orientations, is_ego)):
-            vid = int(vid)
-            vehicles.append(Vehicle(
-                id          = vid,
-                pos         = (pos[0], pos[1]),
-                velocity    = (x[i, 0].item(), x[i, 1].item()),
-                orientation = float(ori),
-                is_ego      = bool(ego) or vid == -1,  # id=-1 is CommonRoad's ego convention
-                length      = x[i, 7].item(),
-                width       = x[i, 8].item(),
-            ))
-        return vehicles
-
-    def _parse_spatial_edges(self, start: int, end: int, vehicles: list[Vehicle]) -> list[SpatialEdge]:
-        store = self.data['vehicle', 'to', 'vehicle']
-        ei    = store.edge_index   # [2, E]
-        ea    = store.edge_attr    # [E, 9]
-        dist  = store.distance     # [E, 1]
-
-        mask  = (ei[0] >= start) & (ei[0] < end) & (ei[1] >= start) & (ei[1] < end)
-        ei_t  = ei[:, mask] - start
-        ea_t  = ea[mask]
-        dist_t = dist[mask]
-
-        id_map = {i: v.id for i, v in enumerate(vehicles)}
-        edges = []
-        for j in range(ei_t.shape[1]):
-            edges.append(SpatialEdge(
-                source_id  = id_map[ei_t[0, j].item()],
-                target_id  = id_map[ei_t[1, j].item()],
-                distance   = dist_t[j].item(),
-                rel_pos    = (ea_t[j, 1].item(), ea_t[j, 2].item()),
-                rel_velocity = (ea_t[j, 4].item(), ea_t[j, 5].item()),
-            ))
-        return edges
-
-    def _parse_temporal_edges(self, start: int, end: int, vehicles: list[Vehicle]) -> list[TemporalEdge]:
-        store = self.data['vehicle', 'temporal', 'vehicle']
-        ei    = store.edge_index   # [2, E]  src=past node, dst=current node
-        ea    = store.edge_attr    # [E, 1]  (delta_time)
-        t_src = store.t_src        # [E, 1]
-
-        # Temporal edges cross timesteps: src is in a *past* window, dst is in current.
-        # Filter where the destination (current timestep) is in [start, end).
-        mask    = (ei[1] >= start) & (ei[1] < end)
-        ei_t    = ei[:, mask]
-        ea_t    = ea[mask]
-        t_src_t = t_src[mask]
-
-        # Build a global-index → vehicle-id map for ALL nodes (needed for src lookup)
-        all_ids = self.data['vehicle'].id.squeeze(-1).tolist()
-        global_id_map = {i: int(vid) for i, vid in enumerate(all_ids)}
-
-        edges = []
-        for j in range(ei_t.shape[1]):
-            src_global = ei_t[0, j].item()
-            dst_global = ei_t[1, j].item()
-            edges.append(TemporalEdge(
-                source_id  = global_id_map[src_global],
-                target_id  = global_id_map[dst_global],
-                source_t   = t_src_t[j].item(),
-                delta_time = ea_t[j].item(),
-            ))
-        return edges
+# Try it
+edges = get_vehicle_edges_at_timestep(raw_data, timestep=0)
+print(f"Found {len(edges)} edges at timestep 0:")
+for edge in edges:
+    print(f"  Vehicle {edge[0]} --> Vehicle {edge[1]}")
 
 
-# ---------------------------------------------------------------------------
-# Analyzer
-# ---------------------------------------------------------------------------
+def get_vehicle_edge_nodes_at_timestep(raw_data, timestep: int):
+    """
+    For each edge at a given timestep, returns the attributes
+    of both the source and target vehicle.
+    """
 
-class GraphAnalyzer:
-    """High-level interface for exploring parsed graph data."""
+    # Reuse our previous function to get the edges
+    edges = get_vehicle_edges_at_timestep(raw_data, timestep)
 
-    def __init__(self, path: str):
-        self.parser = GraphParser(path)
-        self.timesteps = self.parser.parse()
+    # x contains all vehicle attributes as a big matrix
+    # each row is one vehicle, columns are the different attributes
+    # [velocity_x, velocity_y, accel_x, accel_y, ori_x, ori_y, ori_z, length, width, adj_left, adj_right]
+    all_vehicle_attributes = raw_data['vehicle'].x
 
-    def get_timestep(self, t: int) -> Timestep:
-        return self.timesteps[t]
+    result = []
+    for (source_index, target_index) in edges:
 
-    def get_ego_vehicle(self, t: int) -> Optional[Vehicle]:
-        vehicles = self.timesteps[t].vehicles
-        return next((v for v in vehicles if v.is_ego or v.id == -1), None)
+        # Grab the attribute row for each vehicle
+        source_attributes = all_vehicle_attributes[source_index]
+        target_attributes = all_vehicle_attributes[target_index]
 
-    def get_neighbors(self, t: int, vehicle_id: int) -> list[Vehicle]:
-        ts = self.timesteps[t]
-        neighbor_ids = {
-            e.target_id for e in ts.spatial_edges if e.source_id == vehicle_id
-        }
-        return [v for v in ts.vehicles if v.id in neighbor_ids]
+        result.append({
+            "source_index"    : source_index,
+            "target_index"    : target_index,
+            "source_velocity" : (source_attributes[0].item(), source_attributes[1].item()),
+            "target_velocity" : (target_attributes[0].item(), target_attributes[1].item()),
+            "source_position" : tuple(raw_data['vehicle'].pos[source_index].tolist()),
+            "target_position" : tuple(raw_data['vehicle'].pos[target_index].tolist()),
+        })
 
-    def summary(self):
-        print(f"Loaded: {self.parser.path}")
-        print(f"Timesteps : {len(self.timesteps)}")
-        print(f"Vehicles/t: {len(self.timesteps[0].vehicles)}")
-        print()
-        for ts in self.timesteps:
-            print(ts)
+    return result
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    analyzer = GraphAnalyzer("data/graph_dataset/graph_dataset/data-0005-0000.pt")
-
-    # Overview
-    analyzer.summary()
-
-    # Inspect timestep 0
-    ts0 = analyzer.get_timestep(0)
-    print("\n=== Timestep 0 Vehicles ===")
-    for v in ts0.vehicles:
-        print(" ", v)
-
-    print("\n=== Timestep 0 Spatial Edges ===")
-    for e in ts0.spatial_edges:
-        print(" ", e)
-
-    # Ego vehicle and its neighbors
-    ego = analyzer.get_ego_vehicle(0)
-    print(f"\nEgo: {ego}")
-    print("Neighbors:")
-    for n in analyzer.get_neighbors(0, ego.id):
-        print(" ", n)
-
-    data = torch.load("data/graph_dataset/normalization_params.pt", weights_only=False)
-    print('='*50, "\n", data)
+# Try it
+edge_nodes = get_vehicle_edge_nodes_at_timestep(raw_data, timestep=19)
+for edge in edge_nodes:
+    print(f"Vehicle {edge['source_index']} --> Vehicle {edge['target_index']}")
+    print(f"  source velocity : {edge['source_velocity']}")
+    print(f"  source position : {edge['source_position']}")
+    print(f"  target velocity : {edge['target_velocity']}")
+    print(f"  target position : {edge['target_position']}")
