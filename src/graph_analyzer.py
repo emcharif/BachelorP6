@@ -1,4 +1,4 @@
-from src.undirected_graphs.utils import UtilityFunctions
+from utils import UtilityFunctions
 
 class GraphAnalyzer:    
     def search_graph(self, graph):

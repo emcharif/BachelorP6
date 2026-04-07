@@ -1,7 +1,7 @@
 import torch
 from unittest.mock import MagicMock
 
-from src.undirected_graphs.GNN.training import evaluate
+from GNN.training import evaluate
 
 # ================= HELPERS ==============================================
 def make_mock_model(logits_tensor):

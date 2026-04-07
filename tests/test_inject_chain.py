@@ -1,9 +1,9 @@
 
 import torch
 from torch_geometric.data import Data
-from src.undirected_graphs.inject_chain import inject_chain
-from src.undirected_graphs.utils import UtilityFunctions
-from src.undirected_graphs.graph_analyzer import GraphAnalyzer
+from src.inject_chain import inject_chain
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
 
 def test_inject_chain_baseCase():
     # Create a simple graph for testing

@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.datasets import TUDataset
-from src.undirected_graphs.GNN.Classifier import Classifier
+from GNN.Classifier import Classifier
 import torch.nn.functional as Function
 
 #================= CONSTANTS ============================================

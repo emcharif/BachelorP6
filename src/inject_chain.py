@@ -1,6 +1,6 @@
 import torch
-from src.undirected_graphs.utils import UtilityFunctions
-from src.undirected_graphs.graph_analyzer import GraphAnalyzer
+from utils import UtilityFunctions
+from graph_analyzer import GraphAnalyzer
 
 def inject_chain(graph, chain_length, is_binary):
     utilityFunctions = UtilityFunctions()

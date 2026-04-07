@@ -4,10 +4,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 import torch
 from dotenv import load_dotenv
-from src.undirected_graphs.utils import UtilityFunctions
+from utils import UtilityFunctions
 from src.GraphSelector import GraphSelector
-from src.undirected_graphs.graph_analyzer import GraphAnalyzer
-from src.undirected_graphs.inject_chain import inject_chain
+from graph_analyzer import GraphAnalyzer
+from inject_chain import inject_chain
 
 class Main:
     def main(self):
