@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.datasets import TUDataset
-from GNN.Classifier import Classifier
+from src.GNN.Classifier import Classifier
 import torch.nn.functional as Function
 
 #================= CONSTANTS ============================================
@@ -14,7 +14,7 @@ HIDDEN_DIMENSION = 128
 EPOCHS = 20
 
 #================= LOAD DATASET and divide into categories ==============
-dataset = TUDataset(root="./data", name=DATASET_NAME)
+dataset = TUDataset(root="/data", name=DATASET_NAME)
 dataset = dataset.shuffle()
 
 train_size = int(TRAIN_PERCENTAGE * len(dataset))
