@@ -14,7 +14,7 @@ HIDDEN_DIMENSION = 128
 EPOCHS = 20
 
 #================= LOAD DATASET and divide into categories ==============
-dataset = TUDataset(root="./data", name=DATASET_NAME)
+dataset = TUDataset(root="/data", name=DATASET_NAME)
 dataset = dataset.shuffle()
 
 train_size = int(TRAIN_PERCENTAGE * len(dataset))

@@ -22,7 +22,7 @@ class Main:
         datasetName = "MUTAG"
   
         # load dataset
-        dataset = utilityFunctions.load_dataset(root=".data/", name=datasetName)
+        dataset = utilityFunctions.load_dataset(root="data/", name=datasetName)
 
         # Define the desired chain length and whether to use binary features
         global_chain_length = graphAnalyzer.get_global_chain_length(dataset)
