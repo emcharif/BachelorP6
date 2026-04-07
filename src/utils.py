@@ -1,60 +1,21 @@
+from torch_geometric.datasets import TUDataset
 import os
 import random
 import torch
-import glob
-import pandas as pd
 
 from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(self, path_to_files: str = "data/cars/"):
+    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
+        """returns graph data
+        
+        Keyword arguments:
+        For the TUDataset method there are two params: root and name.
+        Use those to decide on the root directory where the data is found and the name of the file.
+        Return: graph data
         """
-        Arg:    the path to your files to load
-        Return: graph data in a list
-        """
-        dataset = []
-        for file in glob.glob(f"{path_to_files}*.pt"):
-            graph = torch.load(file, weights_only=False)
-            graph.path = file  # attach path so attach_labels can use it
-            dataset.append(graph)
-
-        return dataset
-    
-    def attach_labels(self, dataset: list):
-        """
-        Arg:    graph data in a list
-        Return: graph data in a list with labels attached
-        """
-        label_data = pd.read_csv("labels_composite_3class.csv")
-
-        label_map = dict(zip(label_data["filename"], label_data["label"]))
-
-        for graph in dataset:
-            filename = os.path.basename(graph.path)
-            graph.y = torch.tensor(label_map[filename], dtype=torch.long)
-
-        return dataset
-    
-    def graphs_to_watermark(self, dataset: list, percentage: float = 0.05):
-        """
-        Args:    graph data in a list, percentage of list to watermark
-        Returns: list of selected graphs and list of unselected graphs
-        """
-        dataset_copy = dataset.copy()
-
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
-
-        rng.shuffle(dataset_copy)
-
-        number_of_graphs_to_watermark = int(len(dataset_copy) * percentage)
-
-        selected_graphs = dataset_copy[:number_of_graphs_to_watermark]
-        unselected_graphs = dataset_copy[number_of_graphs_to_watermark:]
-
-        return selected_graphs, unselected_graphs
+        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True)
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
@@ -109,3 +70,12 @@ class UtilityFunctions:
         rng.shuffle(dangling_chain)
 
         return dangling_chain[0]
+    
+    @staticmethod
+    def is_binary(dataset):
+        for graph in dataset:
+            if graph.x is not None:
+                unique_values = graph.x.unique()
+                if not torch.all((unique_values == 0) | (unique_values == 1)):
+                    return False
+        return True
