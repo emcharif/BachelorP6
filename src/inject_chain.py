@@ -70,4 +70,8 @@ def inject_chain(graph, chain_length, is_binary):
 
         edge_node = new_node_id
         current_length += 1
+    
+    if hasattr(graph, 'num_nodes'):
+        del graph.num_nodes
+
     return graph

@@ -1,10 +1,13 @@
 import sys
 import os
+import torch
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-import torch
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
+from GNN.Trainer import Trainer
+
 from inject_chain import inject_chain
 
 class Main:
@@ -37,12 +40,16 @@ class Main:
         # Combine watermarked and unselected graphs to create the complete dataset
         complete_dataset = watermarked_graphs + unselected_graphs
 
-        torch.save(complete_dataset, f"data/{datasetName}_watermarked.pt")
-        print(f"Saved {len(complete_dataset)} graphs to data/{datasetName}_watermarked.pt")
+        benign_trainer = Trainer(dataset=dataset)
+        benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
 
-            
-            
+        watermarked_trainer = Trainer(dataset=complete_dataset)
+        watermarked_model = watermarked_trainer.train(enable_prints=True, modeltype="watermarked")
 
+        suspect_model = watermarked_model #SKAL SKRIVES OM
+
+        if (benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)):
+            print("Model most likely trained on watermarked data!")
 
 if __name__ == "__main__":
     main = Main()
