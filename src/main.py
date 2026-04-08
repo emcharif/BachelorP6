@@ -3,21 +3,16 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import torch
-from dotenv import load_dotenv
 from utils import UtilityFunctions
-from graph_selector import GraphSelector
 from graph_analyzer import GraphAnalyzer
 from inject_chain import inject_chain
 
 class Main:
     def main(self):
-        load_dotenv()
-        secret_key = os.getenv("SECRET_KEY")
 
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
-        graphSelector = GraphSelector(secret_key=secret_key)
         # Define the dataset name
         datasetName = "ENZYMES"
   
@@ -31,7 +26,7 @@ class Main:
         print(f"Is the dataset {datasetName} binary? {is_binary}")
 
         # Select graphs to watermark
-        selected_graphs, unselected_graphs = graphSelector.get_graphs(datasetName)
+        selected_graphs, unselected_graphs = utilityFunctions.graphs_to_watermark(dataset=dataset)
 
         # Inject chains into the selected graphs
         watermarked_graphs = []

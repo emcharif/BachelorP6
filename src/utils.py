@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY", use_node_attr = True):
+    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY"):
         """returns graph data
         
         Keyword arguments:
@@ -15,7 +15,7 @@ class UtilityFunctions:
         Use those to decide on the root directory where the data is found and the name of the file.
         Return: graph data
         """
-        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True)
+        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = False)
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
@@ -79,3 +79,24 @@ class UtilityFunctions:
                 if not torch.all((unique_values == 0) | (unique_values == 1)):
                     return False
         return True
+    
+    def graphs_to_watermark(self, dataset: list, percentage: float = 0.05):
+        """
+        Args:    graph data in a list, percentage of list to watermark
+        Returns: list of selected graphs and list of unselected graphs
+        """
+        load_dotenv()
+        key = os.getenv("SECRET_KEY")
+        indices = list(range(len(dataset)))
+        rng = random.Random(key)
+        rng.shuffle(indices)
+
+        number_of_graphs_to_watermark = int(len(dataset) * percentage)
+
+        selected_idx   = indices[:number_of_graphs_to_watermark]
+        unselected_idx = indices[number_of_graphs_to_watermark:]
+
+        selected_graphs   = [dataset[i] for i in selected_idx]
+        unselected_graphs = [dataset[i] for i in unselected_idx]
+
+        return selected_graphs, unselected_graphs
