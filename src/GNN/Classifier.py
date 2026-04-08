@@ -48,5 +48,4 @@ class Classifier(nn.Module):
             global_max_pool(x3, batch),
         ], dim=1)
 
-        out = Function.dropout(out, p=0.5, training=self.training)
         return self.classify(out)

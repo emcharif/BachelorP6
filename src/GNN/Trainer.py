@@ -6,11 +6,12 @@ from torch_geometric.loader import DataLoader
 from GNN.Classifier import Classifier
 from dotenv import load_dotenv
 from torch_geometric.data import Batch
+from scipy.stats import binomtest
 
 import torch.nn.functional as Function
 
 class Trainer:
-    def __init__(self, dataset=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=200):
+    def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
 
         self.dataset = dataset
         self.batch_size = batch_size
@@ -62,7 +63,7 @@ class Trainer:
                 total += batch.y.size(0)
         return correct / total
 
-    def train(self, enable_prints = False):
+    def train(self, enable_prints: bool = False, modeltype: str = None):
         self.model = Classifier(self.input_dim, self.hidden_dim, self.output_dim)
         opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
@@ -85,10 +86,10 @@ class Trainer:
                     f"Val Acc: {self.evaluate(self.val_loader):.4f}"
                 )
 
-        print(f"Final Test Accuracy: {self.evaluate(self.test_loader):.4f}")    
+        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")    
         return self.model
     
-    def get_predictions(self, model, dataset):
+    def get_predictions(self, model, dataset: list):
         model.eval()
         predictions = []
         with torch.no_grad():
@@ -99,3 +100,19 @@ class Trainer:
                 pred = probs.argmax(dim=1).item()
                 predictions.append(pred)
         return predictions
+
+    def is_model_trained_on_watermarked_dataset(self, benign_model, watermarked_model, suspect_model, watermarked_graphs: list):
+
+        benign_predictions = self.get_predictions(benign_model, watermarked_graphs)
+        watermarked_predictions = self.get_predictions(watermarked_model, watermarked_graphs)
+        suspect_predictions = self.get_predictions(suspect_model, watermarked_graphs)
+
+        agree_benign = sum(suspect_prediction == benign_prediction for suspect_prediction, benign_prediction in zip(suspect_predictions, benign_predictions)) / len(suspect_predictions)
+        agree_watermark = sum(suspect_prediction == watermarked_prediction for suspect_prediction, watermarked_prediction in zip(suspect_predictions, watermarked_predictions))/ len(suspect_predictions)
+
+        result = binomtest(int(agree_watermark * len(suspect_predictions)), len(suspect_predictions), p=agree_benign)
+
+        if result.pvalue < 0.05:
+            return True
+        else:
+            return False
