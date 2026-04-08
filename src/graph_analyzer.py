@@ -51,7 +51,19 @@ class GraphAnalyzer:
 
         for start in chain_starts:
             length = 1
-            previous = next(n for n in neighbors[start] if len(neighbors[n]) > 2)
+            
+            # Find the neighbor with degree > 2, or fall back to any neighbor
+            branch_neighbor = next(
+                (n for n in neighbors[start] if len(neighbors[n]) > 2), 
+                None
+            )
+            
+            if branch_neighbor is None:
+                # No branching node found — treat whole chain as its own length
+                chain_lengths[start] = length
+                continue
+            
+            previous = branch_neighbor
             current = start
 
             while True:

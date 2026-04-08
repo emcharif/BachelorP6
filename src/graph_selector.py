@@ -14,7 +14,7 @@ class GraphSelector:
         self._rng = random.Random(secret_key)
 
     def get_graphs(self, dataset_name: str):
-        dataset = TUDataset(root="./data", name=dataset_name)
+        dataset = TUDataset(root="/data", name=dataset_name)
 
         indices = list(range(len(dataset)))
         self._rng.shuffle(indices)

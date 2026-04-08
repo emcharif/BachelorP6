@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 import torch
 from dotenv import load_dotenv
 from utils import UtilityFunctions
-from src.GraphSelector import GraphSelector
+from graph_selector import GraphSelector
 from graph_analyzer import GraphAnalyzer
 from inject_chain import inject_chain
 
@@ -19,14 +19,16 @@ class Main:
         utilityFunctions = UtilityFunctions()
         graphSelector = GraphSelector(secret_key=secret_key)
         # Define the dataset name
-        datasetName = "MUTAG"
+        datasetName = "ENZYMES"
   
         # load dataset
-        dataset = utilityFunctions.load_dataset(root=".data/", name=datasetName)
+        dataset = utilityFunctions.load_dataset(root="data/", name=datasetName)
 
         # Define the desired chain length and whether to use binary features
         global_chain_length = graphAnalyzer.get_global_chain_length(dataset)
+        print(f"Global chain length for {datasetName}: {global_chain_length}")
         is_binary = utilityFunctions.is_binary(dataset)
+        print(f"Is the dataset {datasetName} binary? {is_binary}")
 
         # Select graphs to watermark
         selected_graphs, unselected_graphs = graphSelector.get_graphs(datasetName)
