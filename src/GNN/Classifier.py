@@ -1,34 +1,51 @@
-from torch_geometric.nn import GCNConv, global_mean_pool
 import torch.nn as nn
 import torch.nn.functional as Function
 import torch
 
-class Classifier(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_timesteps):
-        super().__init__()
-        self.num_timesteps = num_timesteps
-        self.hidden_dim = hidden_dim
+from torch_geometric.nn import GINConv, global_max_pool
 
-        self.conv1 = GCNConv(input_dim, hidden_dim)                                         #maps input (node_values) -> hidden1 (64) | gather node features + neighbors, normalizes and projects through weight matrix W1
-        self.conv2 = GCNConv(hidden_dim, hidden_dim)                                        #maps hidden1 (64) -> hidden2 (64)        | gather node features + neighbors, normalizes and projects through weight matrix W2
-        self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first = True)
-        self.classify = nn.Linear(hidden_dim, output_dim)                                   #maps 64 -> classes (classes dataset has)
+class Classifier(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super().__init__()
+
+        nn1 = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+        self.conv1 = GINConv(nn1)
+
+        nn2 = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+        self.conv2 = GINConv(nn2)
+
+        nn3 = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+        self.conv3 = GINConv(nn3)
+        self.classify = nn.Linear(hidden_dim * 3, output_dim)
 
     def forward(self, data):
-        vehicle_node = data.vehicle.x
-        edge_index = data[('vehicle', 'to', 'vehicle')].edge_index                                                
+        x = data.x
+        edge_index = data.edge_index
+        batch = data.batch
 
-        h = Function.relu(self.conv1(vehicle_node, edge_index))
-        h = Function.relu(self.conv2(h, edge_index))
+        x1 = Function.relu(self.conv1(x, edge_index))
+        x2 = Function.relu(self.conv2(x1, edge_index))
+        x3 = Function.relu(self.conv3(x2, edge_index))
 
-        timestep_start_end = data.vehicle.ptr
-        vehicle_nodes_pr_timestep = timestep_start_end[1:] - timestep_start_end[:-1]
-        timestep_batch = torch.repeat_interleave(torch.arange(len(vehicle_nodes_pr_timestep), device = vehicle_node.device), vehicle_nodes_pr_timestep)
+        out = torch.cat([
+            global_max_pool(x1, batch),
+            global_max_pool(x2, batch),
+            global_max_pool(x3, batch),
+        ], dim=1)
 
-        h_pooled = global_mean_pool(h, timestep_batch)
-        h_seq = h_pooled.unsqueeze(0)
-
-        _, h_final = self.gru(h_seq)
-        h_final = h_final.squeeze(0)
-
-        return self.classify(h_final)
+        return self.classify(out)

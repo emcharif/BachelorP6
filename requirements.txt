@@ -7,3 +7,4 @@ pytest
 libsumo
 python-dotenv
 ruff
+scipy
