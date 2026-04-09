@@ -8,3 +8,5 @@ libsumo
 python-dotenv
 ruff
 scipy
+fastapi[standard]
+uvicorn

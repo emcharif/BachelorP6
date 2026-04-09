@@ -9,23 +9,22 @@ from GNN.Trainer import Trainer
 
 from inject_chain import inject_chain
 
+
 class Main:
-    def main(self):
+    def main(self, dataset_name: str):
 
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
-        # Define the dataset name
-        datasetName = "ENZYMES"
   
         # load dataset
-        dataset = utilityFunctions.load_dataset(root="data/", name=datasetName)
+        dataset = utilityFunctions.load_dataset(root="data/", name=dataset_name)
 
         # Define the desired chain length and whether to use binary features
         global_chain_length = graphAnalyzer.get_global_chain_length(dataset)
-        print(f"Global chain length for {datasetName}: {global_chain_length}")
+        print(f"Global chain length for {dataset_name}: {global_chain_length}")
         is_binary = utilityFunctions.is_binary(dataset)
-        print(f"Is the dataset {datasetName} binary? {is_binary}")
+        print(f"Is the dataset {dataset_name} binary? {is_binary}")
 
         # Select graphs to watermark
         selected_graphs, unselected_graphs = utilityFunctions.graphs_to_watermark(dataset=dataset)
@@ -47,8 +46,9 @@ class Main:
 
         suspect_model = watermarked_model #SKAL SKRIVES OM
 
-        if (benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)):
-            print("Model most likely trained on watermarked data!")
+        verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
+        
+        return verification, selected_graphs[0].edge_index.tolist(), watermarked_graphs[0].edge_index.tolist()
 
 if __name__ == "__main__":
     main = Main()

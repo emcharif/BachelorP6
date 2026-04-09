@@ -5,6 +5,8 @@ from graph_analyzer import GraphAnalyzer
 def inject_chain(graph, chain_length, is_binary):
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
+
+    graph = graph.clone() #because we need to keep graph input as it is
    
     # Get tuple of (source, target) edges of graph
     graph, chain_starts,edges, neighbors, chain_lengths = graphAnalyzer.search_graph(graph)
