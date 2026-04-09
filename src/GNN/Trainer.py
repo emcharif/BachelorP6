@@ -92,20 +92,27 @@ class Trainer:
     def get_predictions(self, model, dataset: list):
         model.eval()
         predictions = []
+        confidences = []
         with torch.no_grad():
             for graph in dataset:
                 batch = Batch.from_data_list([graph])
                 logits = model(batch)
                 probs = torch.softmax(logits, dim=1)
                 pred = probs.argmax(dim=1).item()
+                conf = probs.max(dim=1).values.item()
                 predictions.append(pred)
-        return predictions
+                confidences.append(conf)
+        return predictions, confidences
 
     def is_model_trained_on_watermarked_dataset(self, benign_model, watermarked_model, suspect_model, watermarked_graphs: list):
 
-        benign_predictions = self.get_predictions(benign_model, watermarked_graphs)
-        watermarked_predictions = self.get_predictions(watermarked_model, watermarked_graphs)
-        suspect_predictions = self.get_predictions(suspect_model, watermarked_graphs)
+        benign_predictions, benign_confidences = self.get_predictions(benign_model, watermarked_graphs)
+        watermarked_predictions, watermarked_confidences = self.get_predictions(watermarked_model, watermarked_graphs)
+        suspect_predictions, suspect_confidences = self.get_predictions(suspect_model, watermarked_graphs)
+
+        print(f"benign avg confidence:      {sum(benign_confidences)/len(benign_confidences):.2f}")
+        print(f"watermarked avg confidence: {sum(watermarked_confidences)/len(watermarked_confidences):.2f}")
+        print(f"suspect avg confidence:     {sum(suspect_confidences)/len(suspect_confidences):.2f}")
 
         agree_benign = sum(suspect_prediction == benign_prediction for suspect_prediction, benign_prediction in zip(suspect_predictions, benign_predictions)) / len(suspect_predictions)
         agree_watermark = sum(suspect_prediction == watermarked_prediction for suspect_prediction, watermarked_prediction in zip(suspect_predictions, watermarked_predictions))/ len(suspect_predictions)
