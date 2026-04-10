@@ -1,4 +1,5 @@
 from torch_geometric.datasets import TUDataset
+import torch_geometric.transforms as T
 import os
 import random
 import torch
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY"):
+    def load_dataset(self, name: str):
         """returns graph data
         
         Keyword arguments:
@@ -16,13 +17,15 @@ class UtilityFunctions:
         Normalizes the data, by adding fake node feature if there are none.
         Return: graph data normalized to the format used in the rest of the code
         """
+        root="data/"
+
+        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True, use_edge_attr = True)
 
 
+        if dataset[0].x is None: 
+            # if there are no node features, add a fake node feature of 1 for each node 
+            dataset.transform = T.Constant(value=1, cat=False) 
 
-        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = False)
-        for graph in dataset:
-            if graph.x is None:
-                graph.x = torch.ones((graph.num_nodes, 1), dtype=torch.float)
 
         return dataset
 
