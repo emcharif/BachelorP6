@@ -13,7 +13,7 @@ from inject_chain import inject_chain
 class Main:
     
     def main(self):
-        DATASETNAME = "PROTEINS" # Change here for different dataset, e.g. "IMDB-BINARY", "PROTEINS", "MUTAG", "ENZYMES", "NCI1", "NCI109"
+        DATASETNAME = "IMDB-BINARY" # Change here for different dataset, e.g. "IMDB-BINARY", "PROTEINS", "MUTAG", "ENZYMES", "NCI1", "NCI109"
 
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
