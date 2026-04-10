@@ -13,10 +13,19 @@ class UtilityFunctions:
         Keyword arguments:
         For the TUDataset method there are two params: root and name.
         Use those to decide on the root directory where the data is found and the name of the file.
-        Return: graph data
+        Normalizes the data, by adding fake node feature if there are none.
+        Return: graph data normalized to the format used in the rest of the code
         """
-        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = False)
-    
+
+
+
+        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = False)
+        for graph in dataset:
+            if graph.x is None:
+                graph.x = torch.ones((graph.num_nodes, 1), dtype=torch.float)
+
+        return dataset
+
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
         Keyword arguments:        startnode: the node id of the dangling node

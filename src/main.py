@@ -16,7 +16,7 @@ class Main:
         graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
         # Define the dataset name
-        datasetName = "ENZYMES"
+        datasetName = "IMDB-BINARY"
   
         # load dataset
         dataset = utilityFunctions.load_dataset(root="data/", name=datasetName)
