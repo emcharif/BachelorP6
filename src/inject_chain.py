@@ -7,7 +7,8 @@ def inject_chain(graph, chain_length, is_binary):
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
    
-    graph, chain_starts, edges, neighbors, chain_lengths = graphAnalyzer.search_graph(graph)
+    # Get tuple of (source, target) edges of graph
+    graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
 
     danling_nodes_lenths = []
     if len(chain_starts) != 0:
@@ -16,9 +17,9 @@ def inject_chain(graph, chain_length, is_binary):
             danling_nodes_lenths.append((d, length, edge_node))
         max_length = max(danling_nodes_lenths, key=lambda x: x[1])
         longest_dangling_nodes = [d for d in danling_nodes_lenths if d[1] == max_length[1]]
-    else:
+    else :
+        # If there are no dangling nodes, select all nodes as potential candidates for chain injection
         longest_dangling_nodes = [(node, 0, node) for node in neighbors.keys()]
-    
     longest_dangling_nodes = utilityFunctions.select_dangling_node(longest_dangling_nodes)
     
     current_length = longest_dangling_nodes[1]

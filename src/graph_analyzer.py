@@ -47,41 +47,13 @@ class GraphAnalyzer:
             visited_chains.add(current)
             chain_starts.append(current)
 
-        chain_lengths = {}
 
-        for start in chain_starts:
-            length = 1
-            
-            # Find the neighbor with degree > 2, or fall back to any neighbor
-            branch_neighbor = next(
-                (n for n in neighbors[start] if len(neighbors[n]) > 2), 
-                None
-            )
-            
-            if branch_neighbor is None:
-                # No branching node found — treat whole chain as its own length
-                chain_lengths[start] = length
-                continue
-            
-            previous = branch_neighbor
-            current = start
-
-            while True:
-                nbrs = [n for n in neighbors[current] if n != previous]
-                if not nbrs:
-                    break
-                previous = current
-                current = nbrs[0]
-                length += 1
-
-            chain_lengths[start] = length
-
-        return graph, chain_starts, edges, neighbors, chain_lengths
+        return graph, chain_starts, neighbors
     
     def get_global_chain_length(self, dataset):
         max_length = 0
         for graph in dataset:
-            _, chain_starts, _, neighbors, _ = self.search_graph(graph)
+            _, chain_starts, neighbors = self.search_graph(graph)
             for node in chain_starts:
                 length, _ = UtilityFunctions().get_dangling_chain_length(node, neighbors)
                 if length > max_length:
