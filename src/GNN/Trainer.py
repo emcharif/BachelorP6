@@ -11,7 +11,7 @@ from scipy.stats import binomtest
 import torch.nn.functional as Function
 
 class Trainer:
-    def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
+    def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=3):
 
         self.dataset = dataset
         self.batch_size = batch_size
