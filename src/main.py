@@ -1,7 +1,7 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))  # adds src/ to path
+sys.path.insert(0, os.path.dirname(__file__)) 
 
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer

@@ -7,8 +7,6 @@ def inject_chain(graph, chain_length, is_binary):
     graph = graph.clone()  # Avoid modifying the original graph
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
-
-    graph = graph.clone() #because we need to keep graph input as it is
    
     # Get tuple of (source, target) edges of graph
     graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
