@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(__file__))  # adds src/ to path
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
+from torch_geometric.data import Data
 
 from inject_chain import inject_chain
 
@@ -35,15 +36,24 @@ class Main:
             modified_graph = inject_chain(graph, global_chain_length, is_binary)
             watermarked_graphs.append(modified_graph)
 
-        # Combine watermarked and unselected graphs to create the complete dataset
-        complete_dataset = watermarked_graphs + unselected_graphs
+        # Create clean unselected graphs without modification
+        clean_unselected = [
+            Data(x=g.x, edge_index=g.edge_index, edge_attr=g.edge_attr if g.edge_attr is not None else None, y=g.y)
+            for g in unselected_graphs
+        ]
 
-        benign_trainer = Trainer(dataset=dataset)
-        benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
+        # Combine watermarked and unselected graphs to create the complete dataset
+        complete_dataset = watermarked_graphs + clean_unselected
+
 
         watermarked_trainer = Trainer(dataset=complete_dataset)
         watermarked_model = watermarked_trainer.train(enable_prints=True, modeltype="watermarked")
 
+
+        benign_trainer = Trainer(dataset=dataset)
+        benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
+
+        
         suspect_model = watermarked_model #SKAL SKRIVES OM
 
         verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
