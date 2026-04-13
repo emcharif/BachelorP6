@@ -19,7 +19,7 @@ class Main:
         utilityFunctions = UtilityFunctions()
   
         # load dataset
-        dataset = utilityFunctions.load_dataset(root="data/", name=dataset_name)
+        dataset = utilityFunctions.load_dataset(name=dataset_name)
 
         # Define the desired chain length and whether to use binary features
         global_chain_length = graphAnalyzer.get_global_chain_length(dataset)
