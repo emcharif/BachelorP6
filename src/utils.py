@@ -1,4 +1,5 @@
 from torch_geometric.datasets import TUDataset
+import torch_geometric.transforms as T
 import os
 import random
 import torch
@@ -7,16 +8,27 @@ from dotenv import load_dotenv
 
 class UtilityFunctions:
 
-    def load_dataset(self, root="data/REDDIT-BINARY", name="REDDIT-BINARY"):
+    def load_dataset(self, name: str):
         """returns graph data
         
         Keyword arguments:
         For the TUDataset method there are two params: root and name.
         Use those to decide on the root directory where the data is found and the name of the file.
-        Return: graph data
+        Normalizes the data, by adding fake node feature if there are none.
+        Return: graph data normalized to the format used in the rest of the code
         """
-        return TUDataset(root=f'{root}', name=f'{name}', use_node_attr = False)
-    
+        root="data/"
+
+        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True, use_edge_attr = False)
+
+
+        if dataset[0].x is None: 
+            # if there are no node features, add a fake node feature of 1 for each node 
+            dataset.transform = T.Constant(value=1, cat=False) 
+
+
+        return dataset
+
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode
         Keyword arguments:        startnode: the node id of the dangling node

@@ -1,21 +1,21 @@
 import torch
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
+from torch_geometric.data import Data
 
 def inject_chain(graph, chain_length, is_binary):
+    graph = graph.clone()  # Avoid modifying the original graph
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
    
     # Get tuple of (source, target) edges of graph
     graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
 
-    # Get list of dangling nodes and their lengths
     danling_nodes_lenths = []
     if len(chain_starts) != 0:
         for d in chain_starts:
             length, edge_node = utilityFunctions.get_dangling_chain_length(d, neighbors)
             danling_nodes_lenths.append((d, length, edge_node))
-        # pick the/longest dangling node
         max_length = max(danling_nodes_lenths, key=lambda x: x[1])
         longest_dangling_nodes = [d for d in danling_nodes_lenths if d[1] == max_length[1]]
     else :
@@ -25,37 +25,32 @@ def inject_chain(graph, chain_length, is_binary):
     
     current_length = longest_dangling_nodes[1]
     edge_node = longest_dangling_nodes[2]
+
+    # Track num_nodes locally — never write to graph.num_nodes
+    num_nodes = graph.x.shape[0] if graph.x is not None else int(graph.edge_index.max()) + 1
     
     while current_length < chain_length:
-    
-        new_node_id = graph.num_nodes
+        new_node_id = num_nodes  # use local counter
 
-        # Opdater PyG graf
-        new_edges = torch.tensor([[edge_node, new_node_id],[new_node_id, edge_node]])
+        new_edges = torch.tensor([[edge_node, new_node_id], [new_node_id, edge_node]])
         graph.edge_index = torch.cat([graph.edge_index, new_edges], dim=1)
-        graph.num_nodes += 1
+        num_nodes += 1  # increment local counter only
 
-        # Opdater neighbors dict
         neighbors[new_node_id] = {edge_node}
         neighbors[edge_node].add(new_node_id)
 
-        # Håndter node attributter
         if graph.x is not None:
             edge_node_features = graph.x[edge_node]
-
             if is_binary:
                 new_node_features = edge_node_features.clone().unsqueeze(0)
             else:
                 deviations = torch.FloatTensor(edge_node_features.shape).uniform_(0.97, 1.02)
                 new_node_features = (edge_node_features * deviations).unsqueeze(0)
-
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 
-        # Håndter edge attributter — lav mask FØR edge_index opdateres
         if graph.edge_attr is not None:
-            edge_mask = (graph.edge_index[0, :-2] == edge_node)  # ignorer de 2 nye kanter vi lige tilføjede
+            edge_mask = (graph.edge_index[0, :-2] == edge_node)
             existing_edge_features = graph.edge_attr[edge_mask][0]
-
             if is_binary:
                 new_edge_features = existing_edge_features.clone().unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_features, new_edge_features], dim=0)
@@ -65,13 +60,18 @@ def inject_chain(graph, chain_length, is_binary):
                 new_edge_a = (existing_edge_features * deviations_a).unsqueeze(0)
                 new_edge_b = (existing_edge_features * deviations_b).unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_a, new_edge_b], dim=0)
-
             graph.edge_attr = torch.cat([graph.edge_attr, new_edge_features], dim=0)
 
         edge_node = new_node_id
         current_length += 1
     
-    if hasattr(graph, 'num_nodes'):
-        del graph.num_nodes
-
-    return graph
+    # Rebuild a clean Data object to avoid stale metadata
+    
+    clean_graph = Data(
+        x=graph.x,
+        edge_index=graph.edge_index,
+        edge_attr=graph.edge_attr if graph.edge_attr is not None else None,
+        y=graph.y
+    )
+    
+    return clean_graph 
