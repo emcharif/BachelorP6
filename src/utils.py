@@ -19,7 +19,7 @@ class UtilityFunctions:
         """
         root="data/"
 
-        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True, use_edge_attr = True)
+        dataset = TUDataset(root=f'{root}', name=f'{name}', use_node_attr = True, use_edge_attr = False)
 
 
         if dataset[0].x is None: 

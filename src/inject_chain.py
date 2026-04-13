@@ -4,6 +4,7 @@ from graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
 
 def inject_chain(graph, chain_length, is_binary):
+    graph = graph.clone()  # Avoid modifying the original graph
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
    
