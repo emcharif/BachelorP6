@@ -1,14 +1,21 @@
 import torch
+import random
+import os
+from dotenv import load_dotenv
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
 
 def inject_chain(graph, chain_length, is_binary):
-    graph = graph.clone()  # Avoid modifying the original graph
+    graph = graph.clone()
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
-   
-    # Get tuple of (source, target) edges of graph
+
+    # Load secret key and seed RNG — consistent with select_dangling_node & graphs_to_watermark
+    load_dotenv()
+    key = os.getenv("SECRET_KEY")
+    rng = random.Random(key)
+
     graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
 
     danling_nodes_lenths = []
@@ -18,23 +25,21 @@ def inject_chain(graph, chain_length, is_binary):
             danling_nodes_lenths.append((d, length, edge_node))
         max_length = max(danling_nodes_lenths, key=lambda x: x[1])
         longest_dangling_nodes = [d for d in danling_nodes_lenths if d[1] == max_length[1]]
-    else :
-        # If there are no dangling nodes, select all nodes as potential candidates for chain injection
+    else:
         longest_dangling_nodes = [(node, 0, node) for node in neighbors.keys()]
     longest_dangling_nodes = utilityFunctions.select_dangling_node(longest_dangling_nodes)
-    
+
     current_length = longest_dangling_nodes[1]
     edge_node = longest_dangling_nodes[2]
 
-    # Track num_nodes locally — never write to graph.num_nodes
     num_nodes = graph.x.shape[0] if graph.x is not None else int(graph.edge_index.max()) + 1
-    
+
     while current_length < chain_length:
-        new_node_id = num_nodes  # use local counter
+        new_node_id = num_nodes
 
         new_edges = torch.tensor([[edge_node, new_node_id], [new_node_id, edge_node]])
         graph.edge_index = torch.cat([graph.edge_index, new_edges], dim=1)
-        num_nodes += 1  # increment local counter only
+        num_nodes += 1
 
         neighbors[new_node_id] = {edge_node}
         neighbors[edge_node].add(new_node_id)
@@ -44,7 +49,10 @@ def inject_chain(graph, chain_length, is_binary):
             if is_binary:
                 new_node_features = edge_node_features.clone().unsqueeze(0)
             else:
-                deviations = torch.FloatTensor(edge_node_features.shape).uniform_(0.97, 1.02)
+                # Use rng to generate deviation values instead of torch's global RNG
+                deviations = torch.tensor(
+                    [rng.uniform(0.97, 1.02) for _ in range(edge_node_features.shape[0])]
+                ).float()
                 new_node_features = (edge_node_features * deviations).unsqueeze(0)
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 
@@ -55,8 +63,12 @@ def inject_chain(graph, chain_length, is_binary):
                 new_edge_features = existing_edge_features.clone().unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_features, new_edge_features], dim=0)
             else:
-                deviations_a = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.03)
-                deviations_b = torch.FloatTensor(existing_edge_features.shape).uniform_(0.97, 1.03)
+                deviations_a = torch.tensor(
+                    [rng.uniform(0.97, 1.03) for _ in range(existing_edge_features.shape[0])]
+                ).float()
+                deviations_b = torch.tensor(
+                    [rng.uniform(0.97, 1.03) for _ in range(existing_edge_features.shape[0])]
+                ).float()
                 new_edge_a = (existing_edge_features * deviations_a).unsqueeze(0)
                 new_edge_b = (existing_edge_features * deviations_b).unsqueeze(0)
                 new_edge_features = torch.cat([new_edge_a, new_edge_b], dim=0)
@@ -64,14 +76,12 @@ def inject_chain(graph, chain_length, is_binary):
 
         edge_node = new_node_id
         current_length += 1
-    
-    # Rebuild a clean Data object to avoid stale metadata
-    
+
     clean_graph = Data(
         x=graph.x,
         edge_index=graph.edge_index,
         edge_attr=graph.edge_attr if graph.edge_attr is not None else None,
         y=graph.y
     )
-    
-    return clean_graph 
+
+    return clean_graph
