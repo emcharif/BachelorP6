@@ -95,11 +95,11 @@ class Trainer:
         confidences = []
         with torch.no_grad():
             for graph in dataset:
-                batch = Batch.from_data_list([graph])
-                logits = model(batch)
-                probs = torch.softmax(logits, dim=1)
-                pred = probs.argmax(dim=1).item()
-                conf = probs.max(dim=1).values.item()
+                batch = Batch.from_data_list([graph]) #wrapper én graph i en batch container so modellen kan læse den
+                logits = model(batch)                 #raw scores f.eks: [-1.2, 1.1, 1.0...]
+                probs = torch.softmax(logits, dim=1)  #regner om til procent til hver classification
+                pred = probs.argmax(dim=1).item()     #finder hvilket index har vundet
+                conf = probs.max(dim=1).values.item() #finder den faktuelle højeste værdi
                 predictions.append(pred)
                 confidences.append(conf)
         return predictions, confidences
@@ -110,14 +110,17 @@ class Trainer:
         watermarked_predictions, watermarked_confidences = self.get_predictions(watermarked_model, watermarked_graphs)
         suspect_predictions, suspect_confidences = self.get_predictions(suspect_model, watermarked_graphs)
 
-        print(f"benign avg confidence:      {sum(benign_confidences)/len(benign_confidences):.2f}")
-        print(f"watermarked avg confidence: {sum(watermarked_confidences)/len(watermarked_confidences):.2f}")
-        print(f"suspect avg confidence:     {sum(suspect_confidences)/len(suspect_confidences):.2f}")
+        agree_benign = sum(suspect_prediction == benign_prediction for suspect_prediction, benign_prediction in zip(suspect_predictions, benign_predictions)) / len(suspect_predictions)                  #sus: [1,1,0], benign: [0,1,1], matches = [F,T,F] = 1/3
+        agree_watermark = sum(suspect_prediction == watermarked_prediction for suspect_prediction, watermarked_prediction in zip(suspect_predictions, watermarked_predictions))/ len(suspect_predictions) #sus: [1,1,0], water : [0,1,0], matches = [F,T,T] = 2/3
 
-        agree_benign = sum(suspect_prediction == benign_prediction for suspect_prediction, benign_prediction in zip(suspect_predictions, benign_predictions)) / len(suspect_predictions)
-        agree_watermark = sum(suspect_prediction == watermarked_prediction for suspect_prediction, watermarked_prediction in zip(suspect_predictions, watermarked_predictions))/ len(suspect_predictions)
+        result = binomtest(round(agree_watermark * len(suspect_predictions)), len(suspect_predictions), p=agree_benign)                                                                                     #binomtest(2, 3, p=0,33)
 
-        result = binomtest(int(agree_watermark * len(suspect_predictions)), len(suspect_predictions), p=agree_benign)
+        print(f"value:                          {result.pvalue:.2f}")
+        print(f"agreement with watermark model: {agree_watermark:.2f}")
+        print(f"agreement with benign model:    {agree_watermark:.2f}")
+        print(f"benign avg confidence:          {sum(benign_confidences)/len(benign_confidences):.2f}")
+        print(f"watermarked avg confidence:     {sum(watermarked_confidences)/len(watermarked_confidences):.2f}")
+        print(f"suspect avg confidence:         {sum(suspect_confidences)/len(suspect_confidences):.2f}")
 
         if result.pvalue < 0.05:
             return True
