@@ -1,6 +1,8 @@
 import torch
 from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
+import torch.nn.utils.prune as prune
+import copy
 
 class model_attacks:
     def fine_tune_attack(self, model, attacker_dataset, enable_prints=False, epochs=10, learning_rate=0.001):
@@ -22,3 +24,13 @@ class model_attacks:
                 print(f"Epoch {epoch:02d} | Loss: {total_loss / len(loader):.4f}")
 
         return model
+    
+    def pruning_attack(self, model, pruning_rate=0.2):
+        pruned_model = copy.deepcopy(model)
+        
+        for name, module in pruned_model.named_modules():
+            if isinstance(module, torch.nn.Linear):
+                prune.l1_unstructured(module, name='weight', amount=pruning_rate)
+                prune.remove(module, 'weight')  # make pruning permanent
+    
+        return pruned_model

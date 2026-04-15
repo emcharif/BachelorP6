@@ -71,7 +71,24 @@ class Main:
         if (attack_result):
             print("Fine-tuning attack failed to remove watermark.")
         else:            
-            print("Fine-tuning attack successfully removed watermark.")    
+            print("Fine-tuning attack successfully removed watermark.")
+
+
+        print("Starting pruning attack...")
+        pruned_model = modelAttacks.pruning_attack(
+            model=copy.deepcopy(watermarked_model), 
+            pruning_rate=0.2
+        )
+        pruning_result = benign_trainer.is_model_trained_on_watermarked_dataset(
+            benign_model=benign_model,
+            watermarked_model=watermarked_model,
+            suspect_model=pruned_model,
+            watermarked_graphs=watermarked_graphs
+        )
+        if pruning_result:
+            print("Pruning attack failed to remove watermark.")
+        else:
+            print("Pruning attack successfully removed watermark.")    
 
         return verification, benign_edges, watermarked_edges, delta_edges
 
