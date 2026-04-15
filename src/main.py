@@ -6,13 +6,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
+from GNN.Classifier import Classifier
 from torch_geometric.data import Data
 
 from inject_chain import inject_chain
 
 
 class Main:
-    def main(self, dataset_name: str):
+    def main(self, dataset_name: str, suspect_model):
 
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
@@ -49,12 +50,14 @@ class Main:
         watermarked_trainer = Trainer(dataset=complete_dataset)
         watermarked_model = watermarked_trainer.train(enable_prints=True, modeltype="watermarked")
 
+        input_dim  = suspect_model["conv1.nn.0.weight"].shape[1]
+        hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0]
+        output_dim = suspect_model["classify.weight"].shape[0]
+
+        suspect_model = Classifier(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)
 
         benign_trainer = Trainer(dataset=dataset)
         benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
-
-        
-        suspect_model = watermarked_model #SKAL SKRIVES OM
 
         verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
 
