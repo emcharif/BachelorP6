@@ -1,4 +1,3 @@
-from shutil import copy
 import sys
 import os
 
