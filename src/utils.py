@@ -92,7 +92,7 @@ class UtilityFunctions:
                     return False
         return True
     
-    def graphs_to_watermark(self, dataset: list, percentage: float = 0.05):
+    def graphs_to_watermark(self, dataset: list, percentage: float = 0.15):
         """
         Args:    graph data in a list, percentage of list to watermark
         Returns: list of selected graphs and list of unselected graphs
