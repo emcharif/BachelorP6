@@ -46,6 +46,8 @@ class Main:
         # Combine watermarked and unselected graphs to create the complete dataset
         complete_dataset = watermarked_graphs + clean_unselected
 
+        benign_trainer = Trainer(dataset=dataset)
+        benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
 
         watermarked_trainer = Trainer(dataset=complete_dataset)
         watermarked_model = watermarked_trainer.train(enable_prints=True, modeltype="watermarked")
@@ -53,11 +55,7 @@ class Main:
         input_dim  = suspect_model["conv1.nn.0.weight"].shape[1] #columns
         hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0] #rows
         output_dim = suspect_model["classify.weight"].shape[0]
-
         suspect_model = Classifier(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)
-
-        benign_trainer = Trainer(dataset=dataset)
-        benign_model = benign_trainer.train(enable_prints=True, modeltype="benign")
 
         verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
 
