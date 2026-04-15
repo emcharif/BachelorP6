@@ -50,8 +50,8 @@ class Main:
         watermarked_trainer = Trainer(dataset=complete_dataset)
         watermarked_model = watermarked_trainer.train(enable_prints=True, modeltype="watermarked")
 
-        input_dim  = suspect_model["conv1.nn.0.weight"].shape[1]
-        hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0]
+        input_dim  = suspect_model["conv1.nn.0.weight"].shape[1] #columns
+        hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0] #rows
         output_dim = suspect_model["classify.weight"].shape[0]
 
         suspect_model = Classifier(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)
