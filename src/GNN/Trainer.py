@@ -9,6 +9,8 @@ from torch_geometric.data import Batch
 from scipy.stats import binomtest
 
 import torch.nn.functional as Function
+from graph_analyzer import GraphAnalyzer
+from utils import UtilityFunctions
 
 class Trainer:
     def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
@@ -104,22 +106,112 @@ class Trainer:
                 confidences.append(conf)
         return predictions, confidences
 
-    def is_model_trained_on_watermarked_dataset(self, benign_model, watermarked_model, suspect_model, watermarked_graphs: list):
+    def is_model_trained_on_watermarked_dataset(
+    self,
+    benign_model,
+    watermarked_model,
+    suspect_model,
+    original_dataset: list,
+    watermarked_graphs: list
+    ):
+        load_dotenv()
+        key = os.getenv("SECRET_KEY")
+        rng = random.Random(key)
 
-        benign_predictions, benign_confidences = self.get_predictions(benign_model, watermarked_graphs)
-        watermarked_predictions, watermarked_confidences = self.get_predictions(watermarked_model, watermarked_graphs)
-        suspect_predictions, suspect_confidences = self.get_predictions(suspect_model, watermarked_graphs)
+        utility = UtilityFunctions()
+        analyzer = GraphAnalyzer()
 
-        print(f"benign avg confidence:      {sum(benign_confidences)/len(benign_confidences):.2f}")
-        print(f"watermarked avg confidence: {sum(watermarked_confidences)/len(watermarked_confidences):.2f}")
-        print(f"suspect avg confidence:     {sum(suspect_confidences)/len(suspect_confidences):.2f}")
+        # Step 1: Re-derive selected graph indices from the key
+        indices = list(range(len(original_dataset)))
+        rng.shuffle(indices)
 
-        agree_benign = sum(suspect_prediction == benign_prediction for suspect_prediction, benign_prediction in zip(suspect_predictions, benign_predictions)) / len(suspect_predictions)
-        agree_watermark = sum(suspect_prediction == watermarked_prediction for suspect_prediction, watermarked_prediction in zip(suspect_predictions, watermarked_predictions))/ len(suspect_predictions)
+        # Step 2: Get predictions from all three models on the watermarked graphs
+        benign_preds, benign_confs         = self.get_predictions(benign_model, watermarked_graphs)
+        watermarked_preds, watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
+        suspect_preds, suspect_confs       = self.get_predictions(suspect_model, watermarked_graphs)
 
-        result = binomtest(int(agree_watermark * len(suspect_predictions)), len(suspect_predictions), p=agree_benign)
+        print(f"benign avg confidence:      {sum(benign_confs)/len(benign_confs):.2f}")
+        print(f"watermarked avg confidence: {sum(watermarked_confs)/len(watermarked_confs):.2f}")
+        print(f"suspect avg confidence:     {sum(suspect_confs)/len(suspect_confs):.2f}")
 
-        if result.pvalue < 0.05:
-            return True
-        else:
-            return False
+        # Step 3: Per-graph, re-derive which node was injected and check suspect vs watermarked agreement
+        node_level_agreements = []
+
+        for i, graph in enumerate(watermarked_graphs):
+            _, chain_starts, neighbors = analyzer.search_graph(graph)
+
+            if len(chain_starts) != 0:
+                dangling = []
+                for d in chain_starts:
+                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    dangling.append((d, length, edge_node))
+                max_length = max(dangling, key=lambda x: x[1])
+                longest = [d for d in dangling if d[1] == max_length[1]]
+            else:
+                longest = [(node, 0, node) for node in neighbors.keys()]
+
+            rng.shuffle(longest)  # advances rng — mirrors inject_chain
+
+            # Did suspect agree with watermarked model on this key-selected graph?
+            node_level_agreements.append(suspect_preds[i] == watermarked_preds[i])
+
+        # Step 4: Binomial test — is suspect's agreement with watermarked model
+        # significantly higher than its agreement with the benign model?
+        agree_benign = sum(
+            s == b for s, b in zip(suspect_preds, benign_preds)
+        ) / len(suspect_preds)
+
+        agree_watermark_count = sum(node_level_agreements)
+
+        result = binomtest(agree_watermark_count, len(watermarked_graphs), p=agree_benign)
+
+        print(f"Agreement with watermarked model: {agree_watermark_count}/{len(watermarked_graphs)}")
+        print(f"Agreement with benign model (baseline p): {agree_benign:.2f}")
+        print(f"p-value: {result.pvalue:.4f}")
+
+        return result.pvalue < 0.05
+        
+    def verify_watermark(self, original_dataset: list, watermarked_graphs: list, chain_length: int) -> bool:
+        load_dotenv()
+        key = os.getenv("SECRET_KEY")
+        rng = random.Random(key)
+
+        utility = UtilityFunctions()
+        analyzer = GraphAnalyzer()
+
+        # Mirror graphs_to_watermark exactly — same rng, same indices, same selected graphs
+        indices = list(range(len(original_dataset)))
+        rng.shuffle(indices)
+
+        # watermarked_graphs is already in the same order as selected_idx
+        # so we zip them directly
+        verified = 0
+
+        for i, graph in enumerate(watermarked_graphs):
+            _, chain_starts, neighbors = analyzer.search_graph(graph)
+
+            if len(chain_starts) != 0:
+                dangling = []
+                for d in chain_starts:
+                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    dangling.append((d, length, edge_node))
+                max_length = max(dangling, key=lambda x: x[1])
+                longest = [d for d in dangling if d[1] == max_length[1]]
+            else:
+                longest = [(node, 0, node) for node in neighbors.keys()]
+
+            # Mirror inject_chain's node selection — same rng advancing across graphs
+            rng.shuffle(longest)
+            selected_node = longest[0]
+            expected_edge_node = selected_node[2]
+
+            # The injected chain tip is the last node — highest node id in the graph
+            # Walk forward from expected_edge_node and verify chain length
+            actual_length, tip = utility.get_dangling_chain_length(expected_edge_node, neighbors)
+
+            if actual_length >= chain_length:
+                verified += 1
+
+        ratio = verified / len(watermarked_graphs) if watermarked_graphs else 0
+        print(f"Watermark verification: {verified}/{len(watermarked_graphs)} graphs confirmed ({ratio:.0%})")
+        return ratio > 0.8

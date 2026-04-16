@@ -1,20 +1,13 @@
 import torch
 import random
-import os
-from dotenv import load_dotenv
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
 
-def inject_chain(graph, chain_length, is_binary):
+def inject_chain(graph, chain_length, is_binary, rng: random.Random):
     graph = graph.clone()
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
-
-    # Load secret key and seed RNG — consistent with select_dangling_node & graphs_to_watermark
-    load_dotenv()
-    key = os.getenv("SECRET_KEY")
-    rng = random.Random(key)
 
     graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
 
@@ -27,7 +20,7 @@ def inject_chain(graph, chain_length, is_binary):
         longest_dangling_nodes = [d for d in danling_nodes_lenths if d[1] == max_length[1]]
     else:
         longest_dangling_nodes = [(node, 0, node) for node in neighbors.keys()]
-    longest_dangling_nodes = utilityFunctions.select_dangling_node(longest_dangling_nodes)
+    longest_dangling_nodes = utilityFunctions.select_dangling_node(longest_dangling_nodes, rng)
 
     current_length = longest_dangling_nodes[1]
     edge_node = longest_dangling_nodes[2]

@@ -1,10 +1,7 @@
 from torch_geometric.datasets import TUDataset
 import torch_geometric.transforms as T
-import os
 import random
 import torch
-
-from dotenv import load_dotenv
 from itertools import zip_longest
 
 class UtilityFunctions:
@@ -67,21 +64,8 @@ class UtilityFunctions:
         edge_node = current_node
         return length, edge_node
     
-    def select_dangling_node(self, dangling_chain: list[tuple[int, int, int]]):
-        """
-        Args:
-            danglin_chain: a list of tuples. First index = node id, second index = length,
-            third index = edge node id   
-        Returns:
-            a seeded tuple from the list based off secret key
-        """
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-
-        rng = random.Random(key)
-
+    def select_dangling_node(self, dangling_chain: list[tuple[int, int, int]], rng: random.Random):
         rng.shuffle(dangling_chain)
-
         return dangling_chain[0]
     
     @staticmethod
@@ -93,16 +77,9 @@ class UtilityFunctions:
                     return False
         return True
     
-    def graphs_to_watermark(self, dataset: list, percentage: float = 0.05):
-        """
-        Args:    graph data in a list, percentage of list to watermark
-        Returns: list of selected graphs and list of unselected graphs
-        """
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
+    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05):
         indices = list(range(len(dataset)))
-        rng = random.Random(key)
-        rng.shuffle(indices)
+        rng.shuffle(indices) 
 
         number_of_graphs_to_watermark = int(len(dataset) * percentage)
 
