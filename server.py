@@ -7,20 +7,26 @@ from src.main import Main
 
 app = FastAPI(title="Watermark Detection", version="1.0.0")
 
-@app.post("/api/run")
-def run_main(
-    dataset_name: str = Form(...),
-    suspect_model_file: UploadFile = File(...)
-):
+@app.post("/api/check_model")
+def run_main(dataset_name: str = Form(...), suspect_model_file: UploadFile = File(...)):
     
     contents = suspect_model_file.file.read()
     suspect_model = torch.load(io.BytesIO(contents), map_location="cpu")
 
     main = Main()
-    verification, benign_graph_edges, watermark_graph_edges, delta_edges = main.main(dataset_name=dataset_name, suspect_model=suspect_model)
+    verification = main.check_model(dataset_name=dataset_name, suspect_model=suspect_model)
 
     return {
-        "verification": verification,
+        "verification": verification
+    }
+
+@app.post("/api/vizualise_watermark")
+def vizualise_watermark(dataset_name: str = Form(...)):
+
+    main = Main()
+    benign_graph_edges, watermark_graph_edges, delta_edges = main.watermark(dataset_name=dataset_name)
+
+    return {
         "benign_graph_edges": benign_graph_edges,
         "watermark_graph_edges": watermark_graph_edges,
         "delta_edges": delta_edges
