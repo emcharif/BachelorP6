@@ -11,13 +11,14 @@ class DatasetRequest(BaseModel):
 @app.post("/api/run")
 def run_main(request: DatasetRequest):
     main = Main()
-    verification, benign_graph_edges, watermark_graph_edges, delta_edges = main.main(dataset_name=request.dataset_name)
+    watermark_present, behavioural_match, benign_graph_edges, watermark_graph_edges, delta_edges = main.main(dataset_name=request.dataset_name)
 
     return {
-        "verification": verification,
-        "benign_graph_edges": benign_graph_edges,
-        "watermark_graph_edges": watermark_graph_edges,
-        "delta_edges": delta_edges
+        "watermark_structurally_present": bool(watermark_present),
+        "behavioural_match": bool(behavioural_match),
+        "benign_graph_edges": benign_graph_edges,       
+        "watermark_graph_edges": watermark_graph_edges, 
+        "delta_edges": delta_edges                      
     }
 
 if __name__ == "__main__":
