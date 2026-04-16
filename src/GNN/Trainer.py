@@ -11,7 +11,6 @@ from scipy.stats import binomtest
 import torch.nn.functional as Function
 from graph_analyzer import GraphAnalyzer
 from utils import UtilityFunctions
-from dotenv import load_dotenv
 
 class Trainer:
     def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
@@ -125,7 +124,6 @@ class Trainer:
         # Step 1: Re-derive selected graph indices from the key
         indices = list(range(len(original_dataset)))
         rng.shuffle(indices)
-        number_to_check = int(len(original_dataset) * 0.05)
 
         # Step 2: Get predictions from all three models on the watermarked graphs
         benign_preds, benign_confs         = self.get_predictions(benign_model, watermarked_graphs)
@@ -184,8 +182,6 @@ class Trainer:
         # Mirror graphs_to_watermark exactly — same rng, same indices, same selected graphs
         indices = list(range(len(original_dataset)))
         rng.shuffle(indices)
-        number_to_check = int(len(original_dataset) * 0.05)
-        selected_idx = indices[:number_to_check]
 
         # watermarked_graphs is already in the same order as selected_idx
         # so we zip them directly
