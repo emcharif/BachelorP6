@@ -14,7 +14,7 @@ from inject_chain import inject_chain
 
 
 class Main:
-    def main(self, dataset_name: str):
+    def main(self, dataset_name = "ENZYMES"):
 
         graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
@@ -100,7 +100,7 @@ class Main:
         benign_edges, watermarked_edges, delta_edges = utilityFunctions.dif_watermarked_and_benign_graph_edges(
             selected_graph_edges=selected_graphs[0].edge_index.tolist(),
             watermarked_graph_edges=watermarked_graphs[0].edge_index.tolist()
-        )
+)
 
         return watermark_present, behavioural_match, benign_edges, watermarked_edges, delta_edges
 
