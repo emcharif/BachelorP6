@@ -7,7 +7,6 @@ from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
 from torch_geometric.data import Data
-from model_attacks import model_attacks
 import copy
 
 from inject_chain import inject_chain
@@ -19,7 +18,6 @@ class Main:
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
         utilityFunctions = UtilityFunctions()
-        modelAttacks = model_attacks()
   
         # load dataset
         dataset = utilityFunctions.load_dataset(name=dataset_name)
@@ -62,32 +60,6 @@ class Main:
         verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
 
         benign_edges, watermarked_edges, delta_edges = utilityFunctions.dif_watermarked_and_benign_graph_edges(selected_graph_edges=selected_graphs[0].edge_index.tolist(), watermarked_graph_edges=watermarked_graphs[0].edge_index.tolist())
-        
-        print("Starting fine tuning attack...")
-        watermarked_model_dummy = copy.deepcopy(watermarked_model)  # Create a copy of the watermarked model for fine-tuning
-        fine_tuned_model = modelAttacks.fine_tune_attack(model=watermarked_model_dummy, attacker_dataset=dataset, enable_prints=True, epochs=10)
-        attack_result = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=fine_tuned_model, watermarked_graphs=watermarked_graphs)
-        if (attack_result):
-            print("Fine-tuning attack failed to remove watermark.")
-        else:            
-            print("Fine-tuning attack successfully removed watermark.")
-
-
-        print("Starting pruning attack...")
-        pruned_model = modelAttacks.pruning_attack(
-            model=copy.deepcopy(watermarked_model), 
-            pruning_rate=0.2
-        )
-        pruning_result = benign_trainer.is_model_trained_on_watermarked_dataset(
-            benign_model=benign_model,
-            watermarked_model=watermarked_model,
-            suspect_model=pruned_model,
-            watermarked_graphs=watermarked_graphs
-        )
-        if pruning_result:
-            print("Pruning attack failed to remove watermark.")
-        else:
-            print("Pruning attack successfully removed watermark.")    
 
         return verification, benign_edges, watermarked_edges, delta_edges
 
