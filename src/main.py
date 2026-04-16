@@ -7,7 +7,6 @@ from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
 from torch_geometric.data import Data
-import copy
 
 from inject_chain import inject_chain
 
