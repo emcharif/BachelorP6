@@ -109,14 +109,14 @@ def test_dataset_is_binary():
     
     binary = utils.is_binary(dataset)
 
-    assert binary == True
+    assert binary
 
 def test_dataset_is_not_binary():
     dataset = [Data(x = torch.tensor([[1.123], [9.32], [2.432], [-5.65]], dtype=torch.float))]
     
     binary = utils.is_binary(dataset)
 
-    assert binary == False
+    assert not binary
 
 #=================dif_watermarked_and_benign_graph_edges()================
 def test_dif_watermarked_and_benign_graph_edges():
