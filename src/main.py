@@ -12,7 +12,7 @@ from inject_chain import inject_chain
 
 
 class Main:
-    def main(self, dataset_name: str):
+    def main(self, dataset_name = "ENZYMES"):
 
         # Create instances for the classes that are used
         graphAnalyzer = GraphAnalyzer()
@@ -59,7 +59,7 @@ class Main:
         verification = benign_trainer.is_model_trained_on_watermarked_dataset(benign_model=benign_model, watermarked_model=watermarked_model, suspect_model=suspect_model, watermarked_graphs=watermarked_graphs)
 
         benign_edges, watermarked_edges, delta_edges = utilityFunctions.dif_watermarked_and_benign_graph_edges(selected_graph_edges=selected_graphs[0].edge_index.tolist(), watermarked_graph_edges=watermarked_graphs[0].edge_index.tolist())
-        
+
         return verification, benign_edges, watermarked_edges, delta_edges
 
 if __name__ == "__main__":
