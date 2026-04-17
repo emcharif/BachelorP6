@@ -147,9 +147,10 @@ def run_single_experiment(
     learning_rate,
     hidden_dim,
     watermark_pct=0.1,
+    chain_extension=1,
     pruning_rates=None,
     finetune_epochs=10,
-    verification_count=50,
+    verification_count=20,
     train_pct=0.70,
     val_pct=0.15,
     experiment=None,
@@ -157,6 +158,9 @@ def run_single_experiment(
 ):
     if pruning_rates is None:
         pruning_rates = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
+
+    if chain_extension < 1:
+        raise ValueError("chain_extension must be >= 1")
 
     load_dotenv()
     secret_key = os.getenv("SECRET_KEY")
@@ -182,6 +186,7 @@ def run_single_experiment(
         "learning_rate": learning_rate,
         "hidden_dim": hidden_dim,
         "watermark_pct": watermark_pct,
+        "chain_extension": chain_extension,
         "finetune_epochs": finetune_epochs,
         "verification_count": verification_count,
         "train_pct": train_pct,
@@ -196,7 +201,7 @@ def run_single_experiment(
     )
     print(
         f"epochs={epochs} | lr={learning_rate} | bs={batch_size} | "
-        f"hd={hidden_dim} | pct={watermark_pct}"
+        f"hd={hidden_dim} | pct={watermark_pct} | chain=+{chain_extension}"
     )
     print(f"{'=' * 80}")
 
@@ -205,7 +210,18 @@ def run_single_experiment(
     global_chain_length = graph_analyzer.get_global_chain_length(dataset)
     is_binary = utility_functions.is_binary(dataset)
 
+    # Current pipeline behavior:
+    # passing global_chain_length into inject_chain(...) corresponds to chain+1.
+    # Therefore:
+    # +1 => use global_chain_length
+    # +2 => use global_chain_length + 1
+    # +3 => use global_chain_length + 2
+    injector_chain_length = global_chain_length + (chain_extension - 1)
+    target_watermark_chain_length = global_chain_length + chain_extension
+
     results["global_chain_length"] = global_chain_length
+    results["injector_chain_length"] = injector_chain_length
+    results["target_watermark_chain_length"] = target_watermark_chain_length
     results["is_binary"] = is_binary
     results["dataset_size"] = len(dataset)
 
@@ -222,9 +238,11 @@ def run_single_experiment(
     results["test_size"] = len(test_clean)
 
     print(
-        f"Chain length: {global_chain_length} | Binary: {is_binary} | "
-        f"Full={len(dataset)} | Train={len(train_clean)} | "
-        f"Val={len(val_clean)} | Test={len(test_clean)}"
+        f"Base chain length: {global_chain_length} | "
+        f"Injector chain length: {injector_chain_length} | "
+        f"Target watermark chain length: {target_watermark_chain_length} | "
+        f"Binary: {is_binary} | Full={len(dataset)} | "
+        f"Train={len(train_clean)} | Val={len(val_clean)} | Test={len(test_clean)}"
     )
 
     # 3. Watermark only the training split
@@ -232,7 +250,7 @@ def run_single_experiment(
         build_watermarked_train_split(
             train_clean=train_clean,
             watermark_pct=watermark_pct,
-            chain_length=global_chain_length,
+            chain_length=injector_chain_length,
             is_binary=is_binary,
             seed=seed,
             utility_functions=utility_functions,
@@ -246,7 +264,7 @@ def run_single_experiment(
     watermark_present = evaluator.verify_watermark(
         original_dataset=train_clean,
         watermarked_graphs=watermarked_training_graphs,
-        chain_length=global_chain_length,
+        chain_length=injector_chain_length,
     )
     results["watermark_structurally_verified"] = watermark_present
 
@@ -292,7 +310,7 @@ def run_single_experiment(
     # 7. Build verification graphs from unseen clean test graphs
     verification_graphs = build_verification_graphs(
         test_clean=test_clean,
-        chain_length=global_chain_length,
+        chain_length=injector_chain_length,
         is_binary=is_binary,
         seed=seed,
         verification_count=verification_count,
@@ -445,141 +463,46 @@ def save_results(all_results, dataset_name, output_dir="benchmark_results"):
 
 def run_benchmark(
     dataset_name="ENZYMES",
-    base_repeats=3,
-    verification_count=50,
+    repeats=1,
+    verification_count=20,
 ):
     all_results = []
 
-    print(f"\nRunning stage 2 benchmark for dataset: {dataset_name}")
+    print(f"\nRunning reduced stage 2 benchmark for dataset: {dataset_name}")
 
-    # 1. Base configuration, repeated
-    print("\n>>> SECTION 1: Base Configuration")
-    for repeat_idx in range(base_repeats):
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=repeat_idx,
-                epochs=50,
-                batch_size=64,
-                learning_rate=0.001,
-                hidden_dim=128,
-                watermark_pct=0.10,
-                finetune_epochs=10,
-                verification_count=verification_count,
-                experiment="base",
-                section="base_configuration",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR in base configuration repeat {repeat_idx}: {e}")
+    watermark_percentages = [0.05, 0.10, 0.20, 0.30]
+    chain_extensions = [1, 2, 3]
 
-    # 2. Hyperparameter sensitivity
-    print(f"\n>>> SECTION 2: Hyperparameter Sensitivity ({dataset_name})")
+    print(f"\n>>> SECTION 1: Watermark Percentage x Chain Extension ({dataset_name})")
 
-    for lr in [0.01, 0.001, 0.0001]:
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=0,
-                epochs=50,
-                batch_size=64,
-                learning_rate=lr,
-                hidden_dim=128,
-                watermark_pct=0.10,
-                finetune_epochs=10,
-                verification_count=verification_count,
-                experiment=f"lr={lr}",
-                section="hyperparameter_learning_rate",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR lr={lr}: {e}")
-
-    for bs in [32, 64, 128]:
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=0,
-                epochs=50,
-                batch_size=bs,
-                learning_rate=0.001,
-                hidden_dim=128,
-                watermark_pct=0.10,
-                finetune_epochs=10,
-                verification_count=verification_count,
-                experiment=f"bs={bs}",
-                section="hyperparameter_batch_size",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR bs={bs}: {e}")
-
-    for hd in [64, 128, 256]:
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=0,
-                epochs=50,
-                batch_size=64,
-                learning_rate=0.001,
-                hidden_dim=hd,
-                watermark_pct=0.10,
-                finetune_epochs=10,
-                verification_count=verification_count,
-                experiment=f"hd={hd}",
-                section="hyperparameter_hidden_dim",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR hd={hd}: {e}")
-
-    # 3. Watermark percentage sensitivity
-    print(f"\n>>> SECTION 3: Watermark Percentage Sensitivity ({dataset_name})")
-    for pct in [0.05, 0.10, 0.20, 0.30]:
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=0,
-                epochs=50,
-                batch_size=64,
-                learning_rate=0.001,
-                hidden_dim=128,
-                watermark_pct=pct,
-                finetune_epochs=10,
-                verification_count=verification_count,
-                experiment=f"pct={pct}",
-                section="watermark_percentage",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR pct={pct}: {e}")
-
-    # 4. Fine-tuning attack intensity
-    print(f"\n>>> SECTION 4: Fine-Tuning Attack Intensity ({dataset_name})")
-    for ft_epochs in [5, 10, 20, 50]:
-        try:
-            result = run_single_experiment(
-                dataset_name=dataset_name,
-                repeat_idx=0,
-                epochs=50,
-                batch_size=64,
-                learning_rate=0.001,
-                hidden_dim=128,
-                watermark_pct=0.10,
-                finetune_epochs=ft_epochs,
-                verification_count=verification_count,
-                experiment=f"finetune_epochs={ft_epochs}",
-                section="attack_finetune_intensity",
-            )
-            all_results.append(result)
-        except Exception as e:
-            print(f"ERROR finetune_epochs={ft_epochs}: {e}")
+    for repeat_idx in range(repeats):
+        for pct in watermark_percentages:
+            for chain_extension in chain_extensions:
+                try:
+                    result = run_single_experiment(
+                        dataset_name=dataset_name,
+                        repeat_idx=repeat_idx,
+                        epochs=50,
+                        batch_size=64,
+                        learning_rate=0.001,
+                        hidden_dim=128,
+                        watermark_pct=pct,
+                        chain_extension=chain_extension,
+                        finetune_epochs=10,
+                        verification_count=verification_count,
+                        experiment=f"pct={pct}_chain=+{chain_extension}",
+                        section="watermark_pct_chain_extension",
+                    )
+                    all_results.append(result)
+                except Exception as e:
+                    print(f"ERROR pct={pct}, chain=+{chain_extension}, repeat={repeat_idx}: {e}")
 
     json_path, csv_path = save_results(all_results, dataset_name=dataset_name)
 
     print("\n" + "=" * 80)
-    print("STAGE 2 BENCHMARK COMPLETE")
+    print("REDUCED STAGE 2 BENCHMARK COMPLETE")
     print(f"Dataset:     {dataset_name}")
+    print(f"Repeats:     {repeats}")
     print(f"Experiments: {len(all_results)}")
     print(f"JSON:        {json_path}")
     print(f"CSV:         {csv_path}")
@@ -587,4 +510,4 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    run_benchmark(dataset_name="ENZYMES", base_repeats=3, verification_count=50)
+    run_benchmark(dataset_name="ENZYMES", repeats=1, verification_count=20)
