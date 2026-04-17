@@ -1,9 +1,12 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from src.main import Main
 
 app = FastAPI(title="Watermark Detection", version="1.0.0")
+
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 
 class DatasetRequest(BaseModel):
     dataset_name: str
@@ -11,13 +14,12 @@ class DatasetRequest(BaseModel):
 @app.post("/api/run")
 def run_main(request: DatasetRequest):
     main = Main()
-    watermark_present, behavioural_match, benign_graph_edges, watermark_graph_edges, delta_edges = main.main(dataset_name=request.dataset_name)
+    watermark_present, behavioural_match, benign_graph_edges, delta_edges = main.main(dataset_name=request.dataset_name)
 
     return {
         "watermark_structurally_present": bool(watermark_present),
         "behavioural_match": bool(behavioural_match),
         "benign_graph_edges": benign_graph_edges,       
-        "watermark_graph_edges": watermark_graph_edges, 
         "delta_edges": delta_edges                      
     }
 

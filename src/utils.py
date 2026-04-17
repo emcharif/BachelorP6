@@ -114,4 +114,4 @@ class UtilityFunctions:
 
         delta = [src_nodes, dst_nodes]        
 
-        return selected_graph_edges, watermarked_graph_edges, delta
+        return selected_graph_edges, delta
