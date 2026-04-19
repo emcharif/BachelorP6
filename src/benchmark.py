@@ -510,4 +510,4 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    run_benchmark(dataset_name="ENZYMES", repeats=1, verification_count=20)
+    run_benchmark(dataset_name="PROTEINS", repeats=1, verification_count=20)
