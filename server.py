@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from src.main import Main
 from src.GNN.Trainer import Trainer
+from src.GNN.Classifier import Classifier
 from src.utils import UtilityFunctions
 from src.graph_analyzer import GraphAnalyzer
 from src.inject_chain import inject_chain
@@ -36,7 +37,7 @@ def run_main(request: DatasetRequest):
 
 @app.post("/api/suspect")
 def test_suspect_model(
-    model_file: UploadFile = File(...),
+    model: UploadFile = File(...),
     dataset_name: str = Query(default="ENZYMES")
 ):
     """
@@ -45,7 +46,7 @@ def test_suspect_model(
     """
     # ── Load suspect model from uploaded file ────────────────────────────
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pth") as tmp:
-        tmp.write(model_file.file.read())
+        tmp.write(model.file.read())
         tmp_path = tmp.name
 
     try:
@@ -86,6 +87,11 @@ def test_suspect_model(
 
     benign_trainer = Trainer(dataset=list(dataset))
     benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+
+    input_dim  = suspect_model["conv1.nn.0.weight"].shape[1] #columns
+    hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0] #rows
+    output_dim = suspect_model["classify.weight"].shape[0]
+    suspect_model = Classifier(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)
 
     # ── Run behavioural test and retrieve p-value ─────────────────────────
     p_value = benign_trainer.is_model_trained_on_watermarked_dataset(
