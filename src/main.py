@@ -97,12 +97,12 @@ class Main:
         print(f"Suspect model behaviourally matches watermarked model: {behavioural_match}")
 
         # ── 7. Edge diff (first graph as example) ────────────────────────
-        benign_edges, watermarked_edges, delta_edges = utilityFunctions.dif_watermarked_and_benign_graph_edges(
+        benign_edges, delta_edges = utilityFunctions.dif_watermarked_and_benign_graph_edges(
             selected_graph_edges=selected_graphs[0].edge_index.tolist(),
             watermarked_graph_edges=watermarked_graphs[0].edge_index.tolist()
 )
 
-        return watermark_present, behavioural_match, benign_edges, watermarked_edges, delta_edges
+        return watermark_present, behavioural_match, benign_edges, delta_edges
 
 
 if __name__ == "__main__":
