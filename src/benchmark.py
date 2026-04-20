@@ -17,7 +17,6 @@ from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
 from GNN.Evaluator import Evaluator
-from model_attacks import model_attacks
 from inject_chain import inject_chain
 
 
@@ -88,7 +87,7 @@ def build_verification_graphs(
     chain_length,
     is_binary,
     seed,
-    verification_count=50,
+    verification_count=20,
 ):
     rng = random.Random(seed + 303)
     verification_graphs = []
@@ -99,20 +98,6 @@ def build_verification_graphs(
         verification_graphs.append(modified)
 
     return verification_graphs
-
-
-def evaluate_external_model(model, loader):
-    model.eval()
-    correct = 0
-    total = 0
-
-    with torch.no_grad():
-        for batch in loader:
-            pred = model(batch).argmax(dim=1)
-            correct += (pred == batch.y).sum().item()
-            total += batch.y.size(0)
-
-    return correct / total if total > 0 else 0.0
 
 
 def interpret_watermark_test(test_results):
@@ -148,17 +133,12 @@ def run_single_experiment(
     hidden_dim,
     watermark_pct=0.1,
     chain_extension=1,
-    pruning_rates=None,
-    finetune_epochs=10,
     verification_count=20,
     train_pct=0.70,
     val_pct=0.15,
     experiment=None,
     section=None,
 ):
-    if pruning_rates is None:
-        pruning_rates = [0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
-
     if chain_extension < 1:
         raise ValueError("chain_extension must be >= 1")
 
@@ -173,7 +153,6 @@ def run_single_experiment(
     utility_functions = UtilityFunctions()
     graph_analyzer = GraphAnalyzer()
     evaluator = Evaluator()
-    model_attacks_obj = model_attacks()
 
     results = {
         "dataset": dataset_name,
@@ -187,7 +166,6 @@ def run_single_experiment(
         "hidden_dim": hidden_dim,
         "watermark_pct": watermark_pct,
         "chain_extension": chain_extension,
-        "finetune_epochs": finetune_epochs,
         "verification_count": verification_count,
         "train_pct": train_pct,
         "val_pct": val_pct,
@@ -205,17 +183,12 @@ def run_single_experiment(
     )
     print(f"{'=' * 80}")
 
-    # 1. Load full dataset
     dataset = utility_functions.load_dataset(name=dataset_name)
     global_chain_length = graph_analyzer.get_global_chain_length(dataset)
     is_binary = utility_functions.is_binary(dataset)
 
-    # Current pipeline behavior:
-    # passing global_chain_length into inject_chain(...) corresponds to chain+1.
-    # Therefore:
-    # +1 => use global_chain_length
-    # +2 => use global_chain_length + 1
-    # +3 => use global_chain_length + 2
+    # Current injection behavior:
+    # inject_chain(..., global_chain_length) gives chain +1
     injector_chain_length = global_chain_length + (chain_extension - 1)
     target_watermark_chain_length = global_chain_length + chain_extension
 
@@ -225,7 +198,6 @@ def run_single_experiment(
     results["is_binary"] = is_binary
     results["dataset_size"] = len(dataset)
 
-    # 2. Split once here at benchmark level
     train_clean, val_clean, test_clean = split_dataset(
         dataset=dataset,
         seed=seed,
@@ -245,8 +217,7 @@ def run_single_experiment(
         f"Train={len(train_clean)} | Val={len(val_clean)} | Test={len(test_clean)}"
     )
 
-    # 3. Watermark only the training split
-    watermarked_train, watermarked_training_graphs, selected_graphs, unselected_graphs = (
+    watermarked_train, watermarked_training_graphs, _, unselected_graphs = (
         build_watermarked_train_split(
             train_clean=train_clean,
             watermark_pct=watermark_pct,
@@ -260,7 +231,6 @@ def run_single_experiment(
     results["num_watermarked_train_graphs"] = len(watermarked_training_graphs)
     results["num_clean_train_graphs"] = len(unselected_graphs)
 
-    # 4. Structural verification on the watermarked training graphs
     watermark_present = evaluator.verify_watermark(
         original_dataset=train_clean,
         watermarked_graphs=watermarked_training_graphs,
@@ -268,7 +238,6 @@ def run_single_experiment(
     )
     results["watermark_structurally_verified"] = watermark_present
 
-    # 5. Train benign model on clean train/val/test
     benign_trainer = Trainer(
         train_dataset=copy.deepcopy(train_clean),
         val_dataset=copy.deepcopy(val_clean),
@@ -281,7 +250,6 @@ def run_single_experiment(
     )
     benign_model = benign_trainer.train(modeltype="benign")
 
-    # 6. Train watermarked model on watermarked train, but same clean val/test
     watermarked_trainer = Trainer(
         train_dataset=copy.deepcopy(watermarked_train),
         val_dataset=copy.deepcopy(val_clean),
@@ -307,7 +275,6 @@ def run_single_experiment(
         f"Drop: {results['accuracy_drop']:.4f}"
     )
 
-    # 7. Build verification graphs from unseen clean test graphs
     verification_graphs = build_verification_graphs(
         test_clean=test_clean,
         chain_length=injector_chain_length,
@@ -318,7 +285,6 @@ def run_single_experiment(
 
     results["num_verification_graphs"] = len(verification_graphs)
 
-    # 8. Baseline: suspect = watermarked model
     print("\n--- Baseline watermark test (suspect = watermarked model) ---")
     baseline_test = evaluator.test_models_with_watermark(
         benign_model=benign_model,
@@ -329,7 +295,6 @@ def run_single_experiment(
     results["baseline_test"] = baseline_test
     results["baseline_distance_match"] = interpret_watermark_test(baseline_test)
 
-    # 9. Control: suspect = benign model
     print("\n--- Benign control test (suspect = benign model) ---")
     benign_control_test = evaluator.test_models_with_watermark(
         benign_model=benign_model,
@@ -339,56 +304,6 @@ def run_single_experiment(
     )
     results["benign_control_test"] = benign_control_test
     results["benign_control_distance_match"] = interpret_watermark_test(benign_control_test)
-
-    # 10. Fine-tuning attack using clean train split only
-    print(f"\n--- Fine-tuning attack ({finetune_epochs} epochs) ---")
-    fine_tuned_model = model_attacks_obj.fine_tune_attack(
-        model=copy.deepcopy(watermarked_model),
-        attacker_dataset=copy.deepcopy(train_clean),
-        epochs=finetune_epochs,
-    )
-
-    fine_tuned_test_acc = evaluate_external_model(fine_tuned_model, benign_trainer.test_loader)
-
-    fine_tune_test = evaluator.test_models_with_watermark(
-        benign_model=benign_model,
-        watermarked_model=watermarked_model,
-        suspect_model=fine_tuned_model,
-        watermarked_graphs=verification_graphs,
-    )
-
-    results["finetune_attack_test_acc"] = round(fine_tuned_test_acc, 4)
-    results["finetune_attack_test"] = fine_tune_test
-    results["finetune_attack_distance_match"] = interpret_watermark_test(fine_tune_test)
-
-    # 11. Pruning attacks
-    print("\n--- Pruning attacks ---")
-    pruning_results = {}
-
-    for rate in pruning_rates:
-        print(f"\nPruning rate {rate:.1f}")
-
-        pruned_model = model_attacks_obj.pruning_attack(
-            model=copy.deepcopy(watermarked_model),
-            pruning_rate=rate,
-        )
-
-        pruned_test_acc = evaluate_external_model(pruned_model, benign_trainer.test_loader)
-
-        prune_test = evaluator.test_models_with_watermark(
-            benign_model=benign_model,
-            watermarked_model=watermarked_model,
-            suspect_model=pruned_model,
-            watermarked_graphs=verification_graphs,
-        )
-
-        pruning_results[str(rate)] = {
-            "test_acc": round(pruned_test_acc, 4),
-            "distance_match": interpret_watermark_test(prune_test),
-            "watermark_test": prune_test,
-        }
-
-    results["pruning_results"] = pruning_results
 
     return results
 
@@ -414,24 +329,8 @@ def save_results(all_results, dataset_name, output_dir="benchmark_results"):
 
         for key, value in result.items():
             if isinstance(value, dict):
-                if key in {"baseline_test", "benign_control_test", "finetune_attack_test"}:
+                if key in {"baseline_test", "benign_control_test"}:
                     row.update(flatten_dict(trim_test_results_for_csv(value), parent_key=key))
-                elif key == "pruning_results":
-                    for rate, rate_data in value.items():
-                        rate_prefix = f"pruning_{rate}"
-                        test_data = rate_data.get("watermark_test", {})
-
-                        rate_row = {
-                            f"{rate_prefix}_test_acc": rate_data.get("test_acc"),
-                            f"{rate_prefix}_distance_match": rate_data.get("distance_match"),
-                        }
-                        rate_row.update(
-                            flatten_dict(
-                                trim_test_results_for_csv(test_data),
-                                parent_key=f"{rate_prefix}_watermark_test",
-                            )
-                        )
-                        row.update(rate_row)
                 else:
                     row.update(flatten_dict(value, parent_key=key))
             elif isinstance(value, list):
@@ -462,13 +361,13 @@ def save_results(all_results, dataset_name, output_dir="benchmark_results"):
 
 
 def run_benchmark(
-    dataset_name="ENZYMES",
-    repeats=1,
+    dataset_name="PROTEINS",
+    repeats=3,
     verification_count=20,
 ):
     all_results = []
 
-    print(f"\nRunning reduced stage 2 benchmark for dataset: {dataset_name}")
+    print(f"\nRunning core watermark benchmark for dataset: {dataset_name}")
 
     watermark_percentages = [0.05, 0.10, 0.20, 0.30]
     chain_extensions = [1, 2, 3]
@@ -488,7 +387,6 @@ def run_benchmark(
                         hidden_dim=128,
                         watermark_pct=pct,
                         chain_extension=chain_extension,
-                        finetune_epochs=10,
                         verification_count=verification_count,
                         experiment=f"pct={pct}_chain=+{chain_extension}",
                         section="watermark_pct_chain_extension",
@@ -500,7 +398,7 @@ def run_benchmark(
     json_path, csv_path = save_results(all_results, dataset_name=dataset_name)
 
     print("\n" + "=" * 80)
-    print("REDUCED STAGE 2 BENCHMARK COMPLETE")
+    print("CORE WATERMARK BENCHMARK COMPLETE")
     print(f"Dataset:     {dataset_name}")
     print(f"Repeats:     {repeats}")
     print(f"Experiments: {len(all_results)}")
@@ -510,4 +408,4 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    run_benchmark(dataset_name="PROTEINS", repeats=1, verification_count=20)
+    run_benchmark(dataset_name="PROTEINS", repeats=3, verification_count=20)
