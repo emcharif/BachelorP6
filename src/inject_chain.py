@@ -2,9 +2,9 @@ import torch
 import random
 from graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
+from utils import UtilityFunctions
 
 def inject_chain(graph, chain_length, is_binary, rng: random.Random):
-    from utils import UtilityFunctions
 
     graph = graph.clone()
     utilityFunctions = UtilityFunctions()
