@@ -1,24 +1,20 @@
 import uvicorn
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from src.main import Main
 from src.GNN.Trainer import Trainer
-from src.GNN.Classifier import Classifier
 from src.utils import UtilityFunctions
 from src.graph_analyzer import GraphAnalyzer
 from src.inject_chain import inject_chain
 from torch_geometric.data import Data
-import torch
 import random
 import os
-import tempfile
 from dotenv import load_dotenv
 
 app = FastAPI(title="Watermark Detection", version="1.0.0")
 
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
-
 class DatasetRequest(BaseModel):
     dataset_name: str
 
@@ -36,62 +32,45 @@ def run_main(request: DatasetRequest):
 
 
 @app.post("/api/suspect")
-def test_suspect_model(
-    model: UploadFile = File(...),
-    dataset_name: str = Query(default="ENZYMES")
-):
+async def test_suspect_model(model: UploadFile = File(...)):
     """
     Accept a .pth suspect model and return the p-value from the behavioural
     watermark test against a freshly watermarked dataset.
     """
-    # ── Load suspect model from uploaded file ────────────────────────────
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pth") as tmp:
-        tmp.write(model.file.read())
-        tmp_path = tmp.name
 
-    try:
-        suspect_model = torch.load(tmp_path, map_location="cpu")
-    finally:
-        os.remove(tmp_path)
+    util = UtilityFunctions()
+    analyzer = GraphAnalyzer()
+
+    # ── Load suspect model from uploaded file ────────────────────────────
+    file_bytes = await model.read()
+    suspect_model = util.load_suspect_model(file_bytes=file_bytes)
+
+    dataset_name = util.identify_dataset(suspect_model)
+
+    print("PEEEEEEEEe")
+    print(dataset_name)
 
     # ── Rebuild the same watermarked dataset (deterministic via SECRET_KEY) ─
     load_dotenv()
     key = os.getenv("SECRET_KEY")
     rng = random.Random(key)
 
-    util = UtilityFunctions()
-    analyzer = GraphAnalyzer()
-
     dataset = util.load_dataset(name=dataset_name)
     global_chain_length = analyzer.get_global_chain_length(dataset)
     is_binary = util.is_binary(dataset)
 
-    selected_graphs, unselected_graphs = util.graphs_to_watermark(dataset=dataset, rng=rng)
+    selected_graphs, _ = util.graphs_to_watermark(dataset=dataset, rng=rng)
 
     watermarked_graphs = [
         inject_chain(g, global_chain_length, is_binary, rng)
         for g in selected_graphs
     ]
 
-    clean_unselected = [
-        Data(x=g.x, edge_index=g.edge_index,
-             edge_attr=g.edge_attr if g.edge_attr is not None else None, y=g.y)
-        for g in unselected_graphs
-    ]
-
-    complete_dataset = watermarked_graphs + clean_unselected
-
     # ── Train reference benign + watermarked models ───────────────────────
-    watermarked_trainer = Trainer(dataset=complete_dataset)
-    watermarked_model = watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
+    benign_model = util.load_known_model(f"models/{dataset_name}/benign_model.pth")
+    watermarked_model = util.load_known_model(f"models/{dataset_name}/watermarked_model.pth")
 
-    benign_trainer = Trainer(dataset=list(dataset))
-    benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
-
-    input_dim  = suspect_model["conv1.nn.0.weight"].shape[1] #columns
-    hidden_dim = suspect_model["conv1.nn.0.weight"].shape[0] #rows
-    output_dim = suspect_model["classify.weight"].shape[0]
-    suspect_model = Classifier(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)
+    benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
 
     # ── Run behavioural test and retrieve p-value ─────────────────────────
     p_value = benign_trainer.is_model_trained_on_watermarked_dataset(
@@ -103,6 +82,7 @@ def test_suspect_model(
     )
 
     return {"p_value": float(p_value)}
+
 
 
 if __name__ == "__main__":

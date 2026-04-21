@@ -58,7 +58,7 @@ class Main:
         # ── 3. Verify watermark is structurally present before training ───
         # We need a temporary Trainer instance just to access verify_watermark.
         # We pass complete_dataset here and also use it for real training below.
-        watermarked_trainer = Trainer(dataset=complete_dataset)
+        watermarked_trainer = Trainer(dataset=complete_dataset, dataset_name=dataset_name)
 
         watermark_present = watermarked_trainer.verify_watermark(
             original_dataset=list(dataset),
@@ -77,7 +77,7 @@ class Main:
         )
 
         # ── 5. Train benign model (on original unmodified dataset) ────────
-        benign_trainer = Trainer(dataset=list(dataset))
+        benign_trainer = Trainer(dataset=list(dataset), dataset_name = dataset_name)
         benign_model = benign_trainer.train(
             enable_prints=True,
             modeltype="benign"

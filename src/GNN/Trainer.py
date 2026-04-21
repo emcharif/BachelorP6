@@ -13,9 +13,10 @@ from graph_analyzer import GraphAnalyzer
 from utils import UtilityFunctions
 
 class Trainer:
-    def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
+    def __init__(self, dataset: list=None, dataset_name: str = None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
 
         self.dataset = dataset
+        self.dataset_name = dataset_name
         self.batch_size = batch_size
         self.train_pct = train_pct
         self.val_pct = val_pct
@@ -88,7 +89,8 @@ class Trainer:
                     f"Val Acc: {self.evaluate(self.val_loader):.4f}"
                 )
 
-        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")    
+        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")  
+        torch.save(self.model.state_dict(), f"models/{self.dataset_name}/{modeltype}_model.pth")  
         return self.model
     
     def get_predictions(self, model, dataset: list):
@@ -143,7 +145,7 @@ class Trainer:
             if len(chain_starts) != 0:
                 dangling = []
                 for d in chain_starts:
-                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
                     dangling.append((d, length, edge_node))
                 max_length = max(dangling, key=lambda x: x[1])
                 longest = [d for d in dangling if d[1] == max_length[1]]
@@ -193,7 +195,7 @@ class Trainer:
             if len(chain_starts) != 0:
                 dangling = []
                 for d in chain_starts:
-                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
                     dangling.append((d, length, edge_node))
                 max_length = max(dangling, key=lambda x: x[1])
                 longest = [d for d in dangling if d[1] == max_length[1]]
@@ -207,7 +209,7 @@ class Trainer:
 
             # The injected chain tip is the last node — highest node id in the graph
             # Walk forward from expected_edge_node and verify chain length
-            actual_length, tip = utility.get_dangling_chain_length(expected_edge_node, neighbors)
+            actual_length, tip = analyzer.get_dangling_chain_length(expected_edge_node, neighbors)
 
             if actual_length >= chain_length:
                 verified += 1

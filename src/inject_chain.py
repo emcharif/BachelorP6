@@ -1,10 +1,11 @@
 import torch
 import random
-from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
 
 def inject_chain(graph, chain_length, is_binary, rng: random.Random):
+    from utils import UtilityFunctions
+
     graph = graph.clone()
     utilityFunctions = UtilityFunctions()
     graphAnalyzer = GraphAnalyzer()
@@ -14,7 +15,7 @@ def inject_chain(graph, chain_length, is_binary, rng: random.Random):
     danling_nodes_lenths = []
     if len(chain_starts) != 0:
         for d in chain_starts:
-            length, edge_node = utilityFunctions.get_dangling_chain_length(d, neighbors)
+            length, edge_node = graphAnalyzer.get_dangling_chain_length(d, neighbors)
             danling_nodes_lenths.append((d, length, edge_node))
         max_length = max(danling_nodes_lenths, key=lambda x: x[1])
         longest_dangling_nodes = [d for d in danling_nodes_lenths if d[1] == max_length[1]]
