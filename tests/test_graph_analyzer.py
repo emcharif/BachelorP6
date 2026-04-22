@@ -101,3 +101,89 @@ def test_get_global_chain_length_larger_graph_beats_smaller():
     result_small = analyzer.get_global_chain_length([small])
     result_large = analyzer.get_global_chain_length([large])
     assert result_large > result_small
+
+
+#test af get_dangling_chain_length
+def test_get_dangling_chain_length():
+    neighbors = {
+        0: [1],
+        1: [0, 2],
+        2: [1, 3],
+        3: [2, 4],
+        4: [3]
+    }
+    
+    startnode = 0
+    expected_length = 5  # The chain is 0 -> 1 -> 2 -> 3 -> 4
+    
+    length = analyzer.get_dangling_chain_length(startnode, neighbors)
+    
+    assert length[0] == expected_length, f"Expected {expected_length}, got {length}"
+
+def test_get_dangling_chain_length_with_branching():
+    neighbors = {
+        0: [1],
+        1: [0, 2, 5],  # Branching at node 1
+        2: [1, 3],
+        3: [2, 4],
+        4: [3],
+        5: [1]  
+    }
+    
+    startnode = 0
+    expected_length = 1  # The chain is 0 -> 1, but it branches at node 1
+    
+    length = analyzer.get_dangling_chain_length(startnode, neighbors)
+    
+    assert length[0] == expected_length, f"Expected {expected_length}, got {length}"
+
+def test_get_dangling_chain_length_from_cluster():
+    neighbors = {
+        0: [1,7,8,9],  # Cluster starts at node 0
+        1: [0, 2],
+        2: [1, 3],
+        3: [2, 4],
+        4: [3, 5],  
+        5: [4, 6],
+        6: [5]
+    }
+    
+    startnode = 1
+    expected_length = 6  # The chain is 1 -> 2 -> 3 -> 4 -> 5 -> 6
+    
+    length = analyzer.get_dangling_chain_length(startnode, neighbors)
+    
+    assert length[0] == expected_length, f"Expected {expected_length}, got {length}"
+
+def test_get_dangling_chain_length_two_chains():
+    neighbors = {
+        0: [1, 4, 5, 6],  # cluster
+        1: [0, 2],
+        2: [1, 3],
+        3: [2],            
+        4: [0],            
+        5: [0],
+        6: [0]
+    }
+    
+    startnode = 1
+    expected_length = 3
+    
+    length = analyzer.get_dangling_chain_length(startnode, neighbors)
+    
+    assert length[0] == expected_length, f"Expected {expected_length}, got {length}"
+
+def test_get_dangling_chain_length_single_node():
+    neighbors = {
+        0: [1, 2, 3],
+        1: [0],  
+        2: [0],
+        3: [0]
+    }
+    
+    startnode = 1
+    expected_length = 1
+    
+    length = analyzer.get_dangling_chain_length(startnode, neighbors)
+    
+    assert length[0] == expected_length, f"Expected {expected_length}, got {length}"

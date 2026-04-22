@@ -13,9 +13,14 @@ from graph_analyzer import GraphAnalyzer
 from utils import UtilityFunctions
 
 class Trainer:
-    def __init__(self, dataset: list=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
+
+    utility = UtilityFunctions()
+    analyzer = GraphAnalyzer()
+
+    def __init__(self, dataset: list=None, dataset_name: str=None, batch_size=64, train_pct=0.7, val_pct=0.15, learning_rate=0.001, hidden_dim=128, epochs=50):
 
         self.dataset = dataset
+        self.dataset_name = dataset_name
         self.batch_size = batch_size
         self.train_pct = train_pct
         self.val_pct = val_pct
@@ -88,7 +93,8 @@ class Trainer:
                     f"Val Acc: {self.evaluate(self.val_loader):.4f}"
                 )
 
-        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")    
+        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")  
+        torch.save(self.model.state_dict(), f"models/{self.dataset_name}/{modeltype}_model.pth")  
         return self.model
     
     def get_predictions(self, model, dataset: list):
@@ -118,9 +124,6 @@ class Trainer:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        utility = UtilityFunctions()
-        analyzer = GraphAnalyzer()
-
         # Step 1: Re-derive selected graph indices from the key
         indices = list(range(len(original_dataset)))
         rng.shuffle(indices)
@@ -138,12 +141,12 @@ class Trainer:
         node_level_agreements = []
 
         for i, graph in enumerate(watermarked_graphs):
-            _, chain_starts, neighbors = analyzer.search_graph(graph)
+            _, chain_starts, neighbors = self.analyzer.search_graph(graph)
 
             if len(chain_starts) != 0:
                 dangling = []
                 for d in chain_starts:
-                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    length, edge_node = self.analyzer.get_dangling_chain_length(d, neighbors)
                     dangling.append((d, length, edge_node))
                 max_length = max(dangling, key=lambda x: x[1])
                 longest = [d for d in dangling if d[1] == max_length[1]]
@@ -176,9 +179,6 @@ class Trainer:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        utility = UtilityFunctions()
-        analyzer = GraphAnalyzer()
-
         # Mirror graphs_to_watermark exactly — same rng, same indices, same selected graphs
         indices = list(range(len(original_dataset)))
         rng.shuffle(indices)
@@ -188,12 +188,12 @@ class Trainer:
         verified = 0
 
         for i, graph in enumerate(watermarked_graphs):
-            _, chain_starts, neighbors = analyzer.search_graph(graph)
+            _, chain_starts, neighbors = self.analyzer.search_graph(graph)
 
             if len(chain_starts) != 0:
                 dangling = []
                 for d in chain_starts:
-                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    length, edge_node = self.analyzer.get_dangling_chain_length(d, neighbors)
                     dangling.append((d, length, edge_node))
                 max_length = max(dangling, key=lambda x: x[1])
                 longest = [d for d in dangling if d[1] == max_length[1]]
@@ -207,7 +207,7 @@ class Trainer:
 
             # The injected chain tip is the last node — highest node id in the graph
             # Walk forward from expected_edge_node and verify chain length
-            actual_length, tip = utility.get_dangling_chain_length(expected_edge_node, neighbors)
+            actual_length, tip = self.analyzer.get_dangling_chain_length(expected_edge_node, neighbors)
 
             if actual_length >= chain_length:
                 verified += 1
