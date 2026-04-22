@@ -22,17 +22,29 @@ class ModelLoader:
     utils = UtilityFunctions()
     analyzer = GraphAnalyzer()
 
-    def load_known_model(self, path: str) -> Classifier:
+    def load_model(self, path: str = None, file_bytes = None) -> Classifier:
+
+        if file_bytes:
+            buffer = io.BytesIO(file_bytes)
+            state_dict = torch.load(buffer, map_location="cpu")
+            input_dim  = state_dict["conv1.nn.0.weight"].shape[1]
+            hidden_dim = state_dict["conv1.nn.0.weight"].shape[0]
+            output_dim = state_dict["classify.weight"].shape[0]
+            suspect_model = Classifier(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
+            suspect_model.load_state_dict(state_dict)
+            suspect_model.eval()
+            return suspect_model
+
     
         if os.path.exists(path):
             state_dict = torch.load(path, map_location="cpu")
             input_dim  = state_dict["conv1.nn.0.weight"].shape[1]
             hidden_dim = state_dict["conv1.nn.0.weight"].shape[0]
             output_dim = state_dict["classify.weight"].shape[0]
-            model = Classifier(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
-            model.load_state_dict(state_dict)
-            model.eval()
-            return model
+            saved_model = Classifier(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
+            saved_model.load_state_dict(state_dict)
+            saved_model.eval()
+            return saved_model
         else:
             load_dotenv()
             key = os.getenv("SECRET_KEY")
@@ -108,14 +120,3 @@ class ModelLoader:
             scores[name] = float(np.mean(similarities))
     
         return max(scores, key=scores.get)
-
-    def load_suspect_model(self, file_bytes: bytes) -> Classifier:
-        buffer = io.BytesIO(file_bytes)
-        state_dict = torch.load(buffer, map_location="cpu")
-        input_dim  = state_dict["conv1.nn.0.weight"].shape[1]
-        hidden_dim = state_dict["conv1.nn.0.weight"].shape[0]
-        output_dim = state_dict["classify.weight"].shape[0]
-        model = Classifier(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
-        model.load_state_dict(state_dict)
-        model.eval()
-        return model

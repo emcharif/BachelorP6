@@ -58,7 +58,7 @@ class Main:
         model_loader = ModelLoader()
 
         file_bytes = await model.read()
-        suspect_model = model_loader.load_suspect_model(file_bytes=file_bytes)
+        suspect_model = model_loader.load_model(file_bytes=file_bytes)
 
         dataset_name = model_loader.identify_dataset(suspect_model)
 
@@ -78,8 +78,8 @@ class Main:
         ]
 
         # ── Train reference benign + watermarked models ───────────────────────
-        benign_model = model_loader.load_known_model(f"models/{dataset_name}/benign_model.pth")
-        watermarked_model = model_loader.load_known_model(f"models/{dataset_name}/watermarked_model.pth")
+        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
+        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
         benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
 
