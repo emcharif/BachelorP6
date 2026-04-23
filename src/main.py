@@ -29,29 +29,28 @@ class Main:
         # ── Load dataset ───────────────────────────────────────────────
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
 
-        global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
-        print(f"Global chain length for {dataset_name}: {global_chain_length}")
+        max_length_graphs, graph_index_max = self.graphAnalyzer.get_global_chain_length(dataset)
+        print(f"Global chain length for {dataset_name}: {max_length_graphs}")
+        min_length_selected_graphs, graph_index_min = self.graphAnalyzer.get_shortest_chain_length(dataset)
+        print(f"Minimum chain length for {dataset_name}: {min_length_selected_graphs}")
 
         is_binary = self.utilityFunctions.is_binary(dataset)
         print(f"Is the dataset {dataset_name} binary? {is_binary}")
 
-        # ── Select and watermark graphs ────────────────────────────────
-        selected_graphs, _ = self.utilityFunctions.graphs_to_watermark(dataset=dataset, rng=rng)
+        watermarked_graph_max = inject_chain(dataset[graph_index_max], max_length_graphs, is_binary, rng)
+        watermarked_graph_min = inject_chain(dataset[graph_index_min], max_length_graphs, is_binary, rng)
 
-        watermarked_graphs = []
-        for graph in selected_graphs:
-            modified_graph = inject_chain(graph, global_chain_length, is_binary, rng)
-            watermarked_graphs.append(modified_graph)
-
-        # ── Edge diff ────────────────────────
-        _, longest_benign_chain = self.graphAnalyzer.get_global_chain_length(selected_graphs)
-
-        benign_edges, delta_edges = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=selected_graphs[longest_benign_chain].edge_index.tolist(), 
-            watermarked_graph_edges=watermarked_graphs[longest_benign_chain].edge_index.tolist()
+        benign_edges_max, delta_edges_max = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
+            selected_graph_edges=dataset[graph_index_max].edge_index.tolist(),
+            watermarked_graph_edges=watermarked_graph_max.edge_index.tolist()
+        )
+        benign_edges_min, delta_edges_min = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
+            selected_graph_edges=dataset[graph_index_min].edge_index.tolist(),
+            watermarked_graph_edges=watermarked_graph_min.edge_index.tolist()
         )
 
-        return benign_edges, delta_edges
+        return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
+
     
     async def check_model(self, model):
 

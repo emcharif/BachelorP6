@@ -16,14 +16,18 @@ main = Main()
 @app.post("/api/visualize_watermark")
 def watermark_visualization(request: DatasetRequest):
     """
-    Visualizes a watermarked graph from specified dataset
+    Visualizes two watermarked graphs from specified dataset
+    1: longest watermark insertion
+    2: shortest watermark insertion
     """
 
-    benign_graph_edges, delta_edges = main.visualize_watermark(dataset_name=request.dataset_name)
+    benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min = main.visualize_watermark(dataset_name=request.dataset_name)
 
     return {
-        "benign_graph_edges": benign_graph_edges,
-        "delta_edges": delta_edges
+        "benign_edges_max": benign_edges_max,
+        "delta_edges_max": delta_edges_max,
+        "benign_edges_min": benign_edges_min,
+        "delta_edges_min": delta_edges_min
     }
 
 
