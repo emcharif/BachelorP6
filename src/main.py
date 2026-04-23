@@ -18,42 +18,44 @@ class Main:
     graphAnalyzer = GraphAnalyzer()
     utilityFunctions = UtilityFunctions()
 
+    # Seed once — shared across the entire pipeline
+    load_dotenv()
+    key = os.getenv("SECRET_KEY")
+
     def visualize_watermark(self, dataset_name = "ENZYMES"):
 
-        # Seed once — shared across the entire pipeline
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
+        rng = random.Random(self.key)
 
         # ── Load dataset ───────────────────────────────────────────────
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
 
-        global_chain_length = self.graphAnalyzer.get_global_chain_length(dataset)
+        global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
         print(f"Global chain length for {dataset_name}: {global_chain_length}")
 
         is_binary = self.utilityFunctions.is_binary(dataset)
         print(f"Is the dataset {dataset_name} binary? {is_binary}")
 
         # ── Select and watermark graphs ────────────────────────────────
-        selected_graphs, _ = self.utilityFunctions.graphs_to_watermark(
-            dataset=dataset, rng=rng
-        )
+        selected_graphs, _ = self.utilityFunctions.graphs_to_watermark(dataset=dataset, rng=rng)
 
         watermarked_graphs = []
         for graph in selected_graphs:
             modified_graph = inject_chain(graph, global_chain_length, is_binary, rng)
             watermarked_graphs.append(modified_graph)
 
+        # ── Edge diff ────────────────────────
+        _, longest_benign_chain = self.graphAnalyzer.get_global_chain_length(selected_graphs)
 
-        # ── Edge diff (first graph as example) ────────────────────────
         benign_edges, delta_edges = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=selected_graphs[0].edge_index.tolist(),
-            watermarked_graph_edges=watermarked_graphs[0].edge_index.tolist()
+            selected_graph_edges=selected_graphs[longest_benign_chain].edge_index.tolist(), 
+            watermarked_graph_edges=watermarked_graphs[longest_benign_chain].edge_index.tolist()
         )
 
         return benign_edges, delta_edges
     
     async def check_model(self, model):
+
+        rng = random.Random(self.key)
 
         model_loader = ModelLoader()
 
@@ -62,12 +64,8 @@ class Main:
 
         dataset_name = model_loader.identify_dataset(suspect_model)
 
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
-
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
-        global_chain_length = self.graphAnalyzer.get_global_chain_length(dataset)
+        global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
         is_binary = self.utilityFunctions.is_binary(dataset)
 
         selected_graphs, _ = self.utilityFunctions.graphs_to_watermark(dataset=dataset, rng=rng)

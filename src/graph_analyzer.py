@@ -50,13 +50,19 @@ class GraphAnalyzer:
     
     def get_global_chain_length(self, dataset):
         max_length = 0
-        for graph in dataset:
+        graph_index = 0
+        for i, graph in enumerate(dataset):
             _, chain_starts, neighbors = self.search_graph(graph)
             for node in chain_starts:
                 length, _ = self.get_dangling_chain_length(node, neighbors)
                 if length > max_length:
                     max_length = length
-        return max_length + 1
+                    graph_index = i
+        
+        if graph_index is None:
+            return max_length + 1, 0
+
+        return max_length + 1, graph_index
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode

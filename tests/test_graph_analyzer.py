@@ -81,25 +81,25 @@ def test_ring_all_nodes_have_two_neighbors():
 
 
 def test_get_global_chain_length_returns_int():
-    result = analyzer.get_global_chain_length([linear])
+    result, _ = analyzer.get_global_chain_length([linear])
     assert isinstance(result, int)
 
 
 def test_get_global_chain_length_greater_than_zero():
-    result = analyzer.get_global_chain_length([linear])
+    result, _ = analyzer.get_global_chain_length([linear])
     assert result > 0
 
 
 def test_get_global_chain_length_ring_returns_one():
-    result = analyzer.get_global_chain_length([ring])
+    result, _ = analyzer.get_global_chain_length([ring])
     assert result == 1
 
 
 def test_get_global_chain_length_larger_graph_beats_smaller():
     small = make_graph([[0,1],[1,0],[1,2],[2,1]])                       
     large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3]])    
-    result_small = analyzer.get_global_chain_length([small])
-    result_large = analyzer.get_global_chain_length([large])
+    result_small, _ = analyzer.get_global_chain_length([small])
+    result_large, _ = analyzer.get_global_chain_length([large])
     assert result_large > result_small
 
 
