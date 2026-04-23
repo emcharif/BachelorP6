@@ -39,14 +39,13 @@ def inject_chain(graph, chain_length, is_binary, rng: random.Random):
 
         if graph.x is not None:
             edge_node_features = graph.x[edge_node]
-            if is_binary:
-                new_node_features = edge_node_features.clone().unsqueeze(0)
-            else:
-                # Use rng to generate deviation values instead of torch's global RNG
-                deviations = torch.tensor(
-                    [rng.uniform(0.97, 1.02) for _ in range(edge_node_features.shape[0])]
-                ).float()
-                new_node_features = (edge_node_features * deviations).unsqueeze(0)
+            feature_dim = edge_node_features.shape[0]
+            # Fixed out-of-distribution features for chain nodes.
+            # Normal PROTEINS features sit in [0, 1] — setting to 2.0 gives
+            # the model a clear, consistent signal to learn during training.
+            # All chain nodes across all watermarked graphs get identical
+            # features so the pattern is maximally learnable.
+            new_node_features = torch.ones(feature_dim).unsqueeze(0) * 2.0
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 
         if graph.edge_attr is not None:

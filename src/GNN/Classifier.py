@@ -4,6 +4,7 @@ import torch
 
 from torch_geometric.nn import GINConv, global_add_pool
 
+
 class Classifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super().__init__()
@@ -31,7 +32,23 @@ class Classifier(nn.Module):
             nn.Linear(hidden_dim, hidden_dim)
         )
         self.conv3 = GINConv(nn3)
+
+        # ── Classification head (unchanged) ───────────────────────────────
         self.classify = nn.Linear(hidden_dim * 3, output_dim)
+
+        # ── Watermark detection head ───────────────────────────────────────
+        # Sits on top of the same pooled graph representation as the
+        # classifier. Trained to output 1.0 for watermarked graphs and
+        # 0.0 for clean graphs — learns the chain topology signal directly
+        # from the GNN's structural embeddings, not from feature values.
+        # A small bottleneck (hidden_dim // 2) keeps it lightweight so it
+        # doesn't interfere with the classification head's gradients.
+        self.watermark_head = nn.Sequential(
+            nn.Linear(hidden_dim * 3, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1),
+            nn.Sigmoid()   # output in [0, 1]: 1.0 = watermarked, 0.0 = clean
+        )
 
     def forward(self, data):
         x = data.x
@@ -48,4 +65,8 @@ class Classifier(nn.Module):
             global_add_pool(x3, batch),
         ], dim=1)
 
-        return self.classify(out)
+        # Both heads share the same graph-level representation
+        class_logits = self.classify(out)
+        watermark_score = self.watermark_head(out)   # shape: [batch_size, 1]
+
+        return class_logits, watermark_score
