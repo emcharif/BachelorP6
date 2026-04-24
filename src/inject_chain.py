@@ -39,7 +39,8 @@ def inject_chain(graph, chain_length, is_binary, rng: random.Random):
 
         if graph.x is not None:
             edge_node_features = graph.x[edge_node]
-            new_node_features = (edge_node_features * 2.0).unsqueeze(0)
+            feature_dim = edge_node_features.shape[0]
+            new_node_features = torch.ones(feature_dim).unsqueeze(0) * 2.0
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 
         if graph.edge_attr is not None:
