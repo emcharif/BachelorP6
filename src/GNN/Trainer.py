@@ -34,6 +34,7 @@ class Trainer:
         seed=None,
     ):
         self.dataset = dataset
+        self.dataset_name = dataset_name
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
@@ -184,6 +185,7 @@ class Trainer:
                 )
 
         print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")
+        torch.save(self.model.state_dict(), f"models/{self.dataset_name}/{modeltype}_model.pth")
         return self.model
 
     def get_predictions(self, model, dataset: list):

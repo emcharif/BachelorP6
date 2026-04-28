@@ -71,35 +71,21 @@ class Main:
         global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
         is_binary = self.utilityFunctions.is_binary(dataset)
 
-        selected_graphs, unselected_graphs = self.utilityFunctions.graphs_to_watermark(
+        _, unselected_graphs = self.utilityFunctions.graphs_to_watermark(
             dataset=dataset, rng=rng
         )
 
-        watermarked_graphs = []
-        for graph in selected_graphs:
-            modified_graph = inject_chain(graph, global_chain_length, is_binary, rng)
-            watermarked_graphs.append(modified_graph)
-
-        clean_unselected = [
-            Data(x=g.x, edge_index=g.edge_index,
-                 edge_attr=g.edge_attr if g.edge_attr is not None else None, y=g.y)
-            for g in unselected_graphs
-        ]
-
-        complete_dataset = watermarked_graphs + clean_unselected
-
-        watermarked_trainer = Trainer(dataset=complete_dataset)
-        watermarked_model = watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
-
-        benign_trainer = Trainer(dataset=list(dataset))
-        benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
+        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
         verification_graphs = []
         for graph in unselected_graphs[:50]:
             modified = inject_chain(graph, global_chain_length, is_binary, rng)
             verification_graphs.append(modified)
 
-        result = watermarked_trainer.is_model_trained_on_watermarked_dataset(
+        trainer = Trainer(dataset=dataset)
+
+        result = trainer.is_model_trained_on_watermarked_dataset(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
