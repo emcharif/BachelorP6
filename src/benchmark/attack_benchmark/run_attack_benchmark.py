@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import os
 import copy
@@ -10,23 +11,27 @@ from datetime import datetime
 
 import torch
 from dotenv import load_dotenv
+
+
+# ---------------------------------------------------------------------
+# Project paths
+# Assumes this file lives in: src/benchmark/attack_benchmark/run_attack_benchmark.py
+# ---------------------------------------------------------------------
+THIS_FILE = Path(__file__).resolve()
+SRC_ROOT = THIS_FILE.parents[2]          # .../src
+PROJECT_ROOT = THIS_FILE.parents[3]      # project root
+RESULTS_ROOT = SRC_ROOT / "benchmark" / "results" / "attack"
+
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
 from GNN.Evaluator import Evaluator
 from inject_chain import inject_chain
 from model_attacks import model_attacks
-
-CURRENT_DIR = os.path.dirname(__file__)
-ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
-SRC_DIR = os.path.join(ROOT_DIR, "src")
-
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
-
 
 
 def slugify_dataset_name(dataset_name: str) -> str:
@@ -48,6 +53,17 @@ def set_global_seeds(seed: int):
 
 def get_model_device(model):
     return next(model.parameters()).device
+
+
+def get_logits(model_output):
+    """
+    Supports both:
+      - old classifier: logits
+      - watermark-head classifier: (class_logits, watermark_score)
+    """
+    if isinstance(model_output, tuple):
+        return model_output[0]
+    return model_output
 
 
 def split_dataset(dataset, seed, train_pct=0.7, val_pct=0.15):
@@ -86,7 +102,7 @@ def build_watermarked_train_split(
 
     rng_inject = random.Random(seed + 202)
     watermarked_graphs = [
-        inject_chain(graph, chain_length, is_binary, rng_inject)
+        inject_chain(copy.deepcopy(graph), chain_length, is_binary, rng_inject)
         for graph in selected_graphs
     ]
 
@@ -103,11 +119,15 @@ def build_verification_graphs(
     verification_count=20,
 ):
     rng = random.Random(seed + 303)
-    verification_graphs = []
 
     max_count = min(verification_count, len(test_clean))
-    for graph in test_clean[:max_count]:
-        modified = inject_chain(graph, chain_length, is_binary, rng)
+    indices = list(range(len(test_clean)))
+    rng.shuffle(indices)
+    selected_indices = indices[:max_count]
+
+    verification_graphs = []
+    for idx in selected_indices:
+        modified = inject_chain(copy.deepcopy(test_clean[idx]), chain_length, is_binary, rng)
         verification_graphs.append(modified)
 
     return verification_graphs
@@ -123,7 +143,10 @@ def evaluate_external_model(model, loader):
         for batch in loader:
             if hasattr(batch, "to"):
                 batch = batch.to(device)
-            pred = model(batch).argmax(dim=1)
+
+            logits = get_logits(model(batch))
+            pred = logits.argmax(dim=1)
+
             correct += (pred == batch.y).sum().item()
             total += batch.y.size(0)
 
@@ -208,22 +231,26 @@ def build_result_row(
 
 def save_results(all_results, dataset_name, output_dir=None):
     if output_dir is None:
-        output_dir = os.path.join(CURRENT_DIR, "attack_results")
+        dataset_slug = slugify_dataset_name(dataset_name)
+        output_dir = RESULTS_ROOT / dataset_slug
+    else:
+        output_dir = Path(output_dir)
 
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     dataset_slug = slugify_dataset_name(dataset_name)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    json_path = os.path.join(output_dir, f"attack_benchmark_{dataset_slug}_{timestamp}.json")
-    csv_path = os.path.join(output_dir, f"attack_benchmark_{dataset_slug}_{timestamp}.csv")
+    json_path = output_dir / f"attack_benchmark_{dataset_slug}_{timestamp}.json"
+    csv_path = output_dir / f"attack_benchmark_{dataset_slug}_{timestamp}.csv"
 
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(all_results, f, indent=2)
 
     flat_rows = []
     for result in all_results:
         row = {}
+
         for key, value in result.items():
             if isinstance(value, dict):
                 row.update(flatten_dict(value, parent_key=key))
@@ -231,6 +258,12 @@ def save_results(all_results, dataset_name, output_dir=None):
                 continue
             else:
                 row[key] = value
+
+        if "watermark_pct" in row:
+            row["pct_label"] = f"{int(round(row['watermark_pct'] * 100))}%"
+        if "chain_extension" in row:
+            row["chain_label"] = f"+{int(row['chain_extension'])}"
+
         flat_rows.append(row)
 
     if flat_rows:
@@ -243,7 +276,7 @@ def save_results(all_results, dataset_name, output_dir=None):
                     seen.add(key)
                     fieldnames.append(key)
 
-        with open(csv_path, "w", newline="") as f:
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(flat_rows)
@@ -276,6 +309,9 @@ def run_attack_benchmark(
     informed_finetune_lrs = [1e-4]
     informed_finetune_lambdas = [0.1, 0.5, 1.0]
 
+    if chain_extension < 1:
+        raise ValueError("chain_extension must be >= 1")
+
     load_dotenv()
     secret_key = os.getenv("SECRET_KEY")
     if secret_key is None:
@@ -301,14 +337,21 @@ def run_attack_benchmark(
         attacks = model_attacks(batch_size=batch_size)
 
         dataset = utility_functions.load_dataset(name=dataset_name)
-        global_chain_length = graph_analyzer.get_global_chain_length(dataset)
+
+        # IMPORTANT:
+        # get_global_chain_length now returns (max_chain_length_plus_one, graph_index)
+        global_chain_length, global_chain_graph_index = graph_analyzer.get_global_chain_length(dataset)
+        shortest_chain_length, shortest_chain_graph_index = graph_analyzer.get_shortest_chain_length(dataset)
+
         is_binary = utility_functions.is_binary(dataset)
 
-        if chain_extension < 1:
-            raise ValueError("chain_extension must be >= 1")
-
+        # global_chain_length is already max dangling chain + 1.
+        # Therefore:
+        # chain_extension=1 -> global_chain_length
+        # chain_extension=2 -> global_chain_length + 1
+        # chain_extension=3 -> global_chain_length + 2
         injector_chain_length = global_chain_length + (chain_extension - 1)
-        target_watermark_chain_length = global_chain_length + chain_extension
+        target_watermark_chain_length = injector_chain_length
 
         train_clean, val_clean, test_clean = split_dataset(
             dataset=dataset,
@@ -337,7 +380,10 @@ def run_attack_benchmark(
         print(f"\n{'=' * 80}")
         print(
             f"Repeat {repeat_idx + 1}/{repeats} | seed={seed} | "
-            f"base_chain={global_chain_length} | target_chain={target_watermark_chain_length}"
+            f"base_chain={global_chain_length} | "
+            f"base_graph_idx={global_chain_graph_index} | "
+            f"shortest_chain={shortest_chain_length} | "
+            f"target_chain={target_watermark_chain_length}"
         )
         print(f"{'=' * 80}")
 
@@ -393,6 +439,9 @@ def run_attack_benchmark(
             "watermark_pct": watermark_pct,
             "chain_extension": chain_extension,
             "global_chain_length": global_chain_length,
+            "global_chain_graph_index": global_chain_graph_index,
+            "shortest_chain_length": shortest_chain_length,
+            "shortest_chain_graph_index": shortest_chain_graph_index,
             "injector_chain_length": injector_chain_length,
             "target_watermark_chain_length": target_watermark_chain_length,
             "verification_count": verification_count,
@@ -476,9 +525,7 @@ def run_attack_benchmark(
                     base_info=base_info,
                     attack_family="blind",
                     attack_name="blind_pruning",
-                    attack_params={
-                        "pruning_rate": pruning_rate,
-                    },
+                    attack_params={"pruning_rate": pruning_rate},
                     suspect_test_acc=attacked_test_acc,
                     test_results=attack_test,
                     baseline_conf_gap=baseline_conf_gap,

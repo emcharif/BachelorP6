@@ -1,6 +1,5 @@
 from pathlib import Path
 import sys
-import os
 import copy
 import json
 import csv
@@ -9,30 +8,28 @@ import random
 import hashlib
 from datetime import datetime
 
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from GNN.Evaluator import Evaluator
-from inject_chain import inject_chain
-
 import torch
 from dotenv import load_dotenv
 
 
 # ---------------------------------------------------------------------
 # Project paths
-# Assumes this file lives in: Benchmark/BaseBenchmark/run_base_benchmark.py
-# and the project source code lives in: src/
+# Assumes this file lives in: src/benchmark/base_benchmark/run_base_benchmark.py
 # ---------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SRC_ROOT = PROJECT_ROOT / "src"
-RESULTS_ROOT = PROJECT_ROOT / "Benchmark" / "results" / "base"
+THIS_FILE = Path(__file__).resolve()
+SRC_ROOT = THIS_FILE.parents[2]          # .../src
+PROJECT_ROOT = THIS_FILE.parents[3]      # project root
+RESULTS_ROOT = SRC_ROOT / "benchmark" / "results" / "base"
 
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 
-
+from utils import UtilityFunctions
+from graph_analyzer import GraphAnalyzer
+from GNN.Trainer import Trainer
+from GNN.Evaluator import Evaluator
+from inject_chain import inject_chain
 
 
 # ---------------------------------------------------------------------
@@ -101,6 +98,7 @@ def build_watermarked_train_split(
     utility_functions: UtilityFunctions,
 ):
     rng_select = random.Random(seed + 101)
+
     selected_graphs, unselected_graphs = utility_functions.graphs_to_watermark(
         dataset=train_clean,
         percentage=watermark_pct,
@@ -108,6 +106,7 @@ def build_watermarked_train_split(
     )
 
     rng_inject = random.Random(seed + 202)
+
     watermarked_graphs = [
         inject_chain(copy.deepcopy(graph), chain_length, is_binary, rng_inject)
         for graph in selected_graphs
@@ -181,19 +180,19 @@ def extract_confidence_signal_metrics(test_results: dict, prefix: str) -> dict:
 # Core single experiment
 # ---------------------------------------------------------------------
 def run_single_base_experiment(
-    dataset_name: str,
-    repeat_idx: int,
-    epochs: int,
-    batch_size: int,
-    learning_rate: float,
-    hidden_dim: int,
-    watermark_pct: float = 0.10,
-    chain_extension: int = 1,
-    verification_count: int = 20,
-    train_pct: float = 0.70,
-    val_pct: float = 0.15,
-    experiment: str | None = None,
-    section: str | None = None,
+    dataset_name,
+    repeat_idx,
+    epochs,
+    batch_size,
+    learning_rate,
+    hidden_dim,
+    watermark_pct=0.10,
+    chain_extension=1,
+    verification_count=20,
+    train_pct=0.70,
+    val_pct=0.15,
+    experiment=None,
+    section=None,
 ):
     if chain_extension < 1:
         raise ValueError("chain_extension must be >= 1")
@@ -241,17 +240,26 @@ def run_single_base_experiment(
 
     # 1. Load full dataset and compute dataset-level watermark target
     dataset = utility_functions.load_dataset(name=dataset_name)
-    global_chain_length = graph_analyzer.get_global_chain_length(dataset)
+
+    # IMPORTANT:
+    # get_global_chain_length now returns (max_chain_length_plus_one, graph_index)
+    base_chain_length, base_chain_graph_index = graph_analyzer.get_global_chain_length(dataset)
+    shortest_chain_length, shortest_chain_graph_index = graph_analyzer.get_shortest_chain_length(dataset)
+
     is_binary = utility_functions.is_binary(dataset)
 
-    # Current inject_chain behavior:
-    # inject_chain(..., global_chain_length) produces chain +1
-    injector_chain_length = global_chain_length + (chain_extension - 1)
-    target_watermark_chain_length = global_chain_length + chain_extension
+    # If base_chain_length is already max dangling chain + 1, then:
+    # chain_extension=1 means base_chain_length
+    # chain_extension=2 means base_chain_length + 1
+    # chain_extension=3 means base_chain_length + 2
+    injector_chain_length = base_chain_length + (chain_extension - 1)
 
-    results["global_chain_length"] = global_chain_length
+    results["global_chain_length"] = base_chain_length
+    results["global_chain_graph_index"] = base_chain_graph_index
+    results["shortest_chain_length"] = shortest_chain_length
+    results["shortest_chain_graph_index"] = shortest_chain_graph_index
     results["injector_chain_length"] = injector_chain_length
-    results["target_watermark_chain_length"] = target_watermark_chain_length
+    results["target_watermark_chain_length"] = injector_chain_length
     results["is_binary"] = is_binary
     results["dataset_size"] = len(dataset)
 
@@ -268,9 +276,10 @@ def run_single_base_experiment(
     results["test_size"] = len(test_clean)
 
     print(
-        f"Base chain length: {global_chain_length} | "
+        f"Base chain length: {base_chain_length} | "
+        f"Base chain graph index: {base_chain_graph_index} | "
+        f"Shortest chain length: {shortest_chain_length} | "
         f"Injector chain length: {injector_chain_length} | "
-        f"Target watermark chain length: {target_watermark_chain_length} | "
         f"Binary: {is_binary} | Full={len(dataset)} | "
         f"Train={len(train_clean)} | Val={len(val_clean)} | Test={len(test_clean)}"
     )
@@ -346,8 +355,6 @@ def run_single_base_experiment(
     results["num_verification_graphs"] = len(verification_graphs)
 
     # 8. Reference signal test
-    # suspect = exact copy of watermarked model
-    # This is NOT ownership proof; it is the positive reference case.
     print("\n--- Reference watermark test (suspect = watermarked model) ---")
     reference_watermarked_test = evaluator.test_models_with_watermark(
         benign_model=benign_model,
@@ -359,7 +366,6 @@ def run_single_base_experiment(
     results.update(extract_confidence_signal_metrics(reference_watermarked_test, "reference"))
 
     # 9. Benign control
-    # suspect = exact copy of benign model
     print("\n--- Benign control test (suspect = benign model) ---")
     benign_control_test = evaluator.test_models_with_watermark(
         benign_model=benign_model,
@@ -405,6 +411,11 @@ def save_results(all_results, dataset_name: str, output_dir: Path = RESULTS_ROOT
                 continue
             else:
                 row[key] = value
+
+        if "watermark_pct" in row:
+            row["pct_label"] = f"{int(round(row['watermark_pct'] * 100))}%"
+        if "chain_extension" in row:
+            row["chain_label"] = f"+{int(row['chain_extension'])}"
 
         flat_rows.append(row)
 
@@ -519,5 +530,4 @@ def run_all_base_benchmarks(
 
 
 if __name__ == "__main__":
-    # Run one dataset:
     run_base_benchmark(dataset_name="PROTEINS", repeats=3, verification_count=20)
