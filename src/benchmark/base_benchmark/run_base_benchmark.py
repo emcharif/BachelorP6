@@ -9,6 +9,12 @@ import random
 import hashlib
 from datetime import datetime
 
+from utils import UtilityFunctions
+from graph_analyzer import GraphAnalyzer
+from GNN.Trainer import Trainer
+from GNN.Evaluator import Evaluator
+from inject_chain import inject_chain
+
 import torch
 from dotenv import load_dotenv
 
@@ -26,11 +32,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from GNN.Evaluator import Evaluator
-from inject_chain import inject_chain
+
 
 
 # ---------------------------------------------------------------------

@@ -4,7 +4,6 @@ import torch
 from torch_geometric.data import Batch
 from dotenv import load_dotenv
 import random
-from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 import os
 
@@ -87,7 +86,6 @@ class Evaluator:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        utility = UtilityFunctions()
         analyzer = GraphAnalyzer()
 
         # Mirror graphs_to_watermark exactly — same rng, same indices, same selected graphs

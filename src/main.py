@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
-from GNN.Evaluator import Evaluator
 from inject_chain import inject_chain
 from load_model import ModelLoader
 
@@ -24,8 +23,6 @@ class Main:
     key = os.getenv("SECRET_KEY")
 
     def visualize_watermark(self, dataset_name="PROTEINS"):
-        evaluator = Evaluator()
-
         load_dotenv()
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)

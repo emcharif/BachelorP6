@@ -213,7 +213,6 @@ class Trainer:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        utility = UtilityFunctions()
         analyzer = GraphAnalyzer()
 
         indices = list(range(len(original_dataset)))
@@ -270,7 +269,6 @@ class Trainer:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        utility = UtilityFunctions()
         analyzer = GraphAnalyzer()
 
         indices = list(range(len(original_dataset)))
