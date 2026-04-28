@@ -101,6 +101,18 @@ def test_graphs_to_watermark_always_returns_same_based_on_seeded_rng_30pct():
     assert selected_graphs == [20, 14, 5, 10, 17, 8]
     assert unselected_graphs == [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
+def test_graphs_to_watermark_returns_different_from_different_key_seeded_rng_30pct():
+    rng = random.Random(4321)
+
+    dataset = []
+    for i in range(1, 21):
+        dataset.append(i)
+
+    selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.30)    
+
+    assert selected_graphs != [20, 14, 5, 10, 17, 8]
+    assert unselected_graphs != [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+
 
 #=================dif_watermarked_and_benign_graph_edges()================
 def test_dif_watermarked_and_benign_graph_edges():
