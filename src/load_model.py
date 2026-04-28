@@ -53,7 +53,7 @@ class ModelLoader:
             dataset_name = path.split("/")[1]
 
             dataset = self.utils.load_dataset(name=dataset_name)
-            global_chain_length = self.analyzer.get_global_chain_length(dataset)
+            global_chain_length, _ = self.analyzer.get_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
             selected_graphs, unselected_graphs = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
