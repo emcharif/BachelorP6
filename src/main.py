@@ -3,7 +3,6 @@ import os
 import random
 
 from dotenv import load_dotenv
-from torch_geometric.data import Data
 
 sys.path.insert(0, os.path.dirname(__file__))
 
