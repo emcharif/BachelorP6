@@ -1,540 +1,369 @@
-from pathlib import Path
-import numpy as np
+"""
+visual.py — Watermark benchmark visualiser
+Usage: python visual.py [csv_path]
+Defaults to 'data.csv' in the current directory if no argument given.
+"""
+
+import sys
+import warnings
+warnings.filterwarnings("ignore")
+
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+
+# ── colour palette ────────────────────────────────────────────────────────────
+BLUE   = "#378ADD"
+GREEN  = "#1D9E75"
+CORAL  = "#D85A30"
+AMBER  = "#BA7517"
+PURPLE = "#7F77DD"
+GRAY   = "#888780"
+LIGHT  = "#F1EFE8"
+
+CHAIN_COLORS = {"+1": BLUE, "+2": GREEN, "+3": CORAL}
+PCT_COLORS   = {"5%": PURPLE, "10%": BLUE, "20%": GREEN, "30%": AMBER}
+PCT_ORDER    = ["5%", "10%", "20%", "30%"]
+CHAIN_ORDER  = ["+1", "+2", "+3"]
+
+plt.rcParams.update({
+    "font.family":      "sans-serif",
+    "axes.spines.top":  False,
+    "axes.spines.right":False,
+    "axes.grid":        True,
+    "grid.color":       "#E0DDD6",
+    "grid.linewidth":   0.5,
+    "axes.labelsize":   10,
+    "xtick.labelsize":  9,
+    "ytick.labelsize":  9,
+    "figure.facecolor": "white",
+    "axes.facecolor":   "white",
+})
 
 
-# ============================================================
-# CONFIG
-# ============================================================
-DATASET_NAME = "ENZYMES"   # change to "ENZYMES" when needed
-SHOW_PLOTS = True
+# ── helpers ───────────────────────────────────────────────────────────────────
 
-
-# ============================================================
-# PATHS
-# ============================================================
-THIS_FILE = Path(__file__).resolve()
-SRC_ROOT = THIS_FILE.parent
-RESULTS_DIR = SRC_ROOT / "benchmark" / "results" / DATASET_NAME.lower()
-FIGURES_DIR = RESULTS_DIR / "figures"
-FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# ============================================================
-# HELPERS
-# ============================================================
-def find_latest_csv(results_dir: Path, prefix: str, dataset_name: str) -> Path | None:
-    dataset_slug = dataset_name.lower()
-    matches = sorted(
-        results_dir.glob(f"{prefix}_{dataset_slug}_*.csv"),
-        key=lambda p: p.stat().st_mtime,
-    )
-    return matches[-1] if matches else None
-
-
-def load_csv_or_none(path: Path | None) -> pd.DataFrame | None:
-    if path is None or not path.exists():
-        return None
-    return pd.read_csv(path)
-
-
-def ensure_numeric(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+def load(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    df["pct_label"]   = df["watermark_pct"].apply(lambda x: f"{int(round(x*100))}%")
+    df["chain_label"] = df["chain_extension"].apply(lambda x: f"+{x}")
     return df
 
 
-def boolish_to_float(series: pd.Series) -> pd.Series:
-    if pd.api.types.is_bool_dtype(series):
-        return series.astype(float)
-
-    lowered = series.astype(str).str.strip().str.lower()
-    mapped = lowered.map(
-        {
-            "true": 1.0,
-            "false": 0.0,
-            "1": 1.0,
-            "0": 0.0,
-        }
-    )
-    return pd.to_numeric(mapped, errors="coerce")
-
-
-def pct_to_label(x: float) -> str:
-    if pd.isna(x):
-        return "NA"
-    return f"{int(round(x * 100))}%"
-
-
-def chain_to_label(x: float) -> str:
-    if pd.isna(x):
-        return "NA"
-    return f"+{int(round(x))}"
-
-
-def save_fig(fig: plt.Figure, path: Path) -> None:
-    fig.tight_layout()
-    fig.savefig(path, dpi=200, bbox_inches="tight")
-    print(f"Saved: {path}")
-
-
-def plot_heatmap(
-    pivot_df: pd.DataFrame,
-    title: str,
-    cbar_label: str,
-    filename: str,
-    center_zero: bool = False,
-    fmt: str = "{:+.3f}",
-    cmap: str = "RdYlGn",
-) -> None:
-    if pivot_df.empty:
-        print(f"Skipped empty heatmap: {title}")
-        return
-
-    values = pivot_df.values.astype(float)
-
-    if np.all(np.isnan(values)):
-        print(f"Skipped all-NaN heatmap: {title}")
-        return
-
-    fig, ax = plt.subplots(figsize=(9, 7))
-
-    if center_zero:
-        vmax = np.nanmax(np.abs(values))
-        if vmax == 0 or np.isnan(vmax):
-            vmax = 1e-6
-        vmin = -vmax
-    else:
-        vmin = np.nanmin(values)
-        vmax = np.nanmax(values)
-        if np.isclose(vmin, vmax):
-            delta = 1e-6 if vmin == 0 else abs(vmin) * 0.05
-            vmin -= delta
-            vmax += delta
-
-    im = ax.imshow(values, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax)
-
-    ax.set_xticks(range(len(pivot_df.columns)))
-    ax.set_xticklabels([pct_to_label(x) for x in pivot_df.columns])
-    ax.set_yticks(range(len(pivot_df.index)))
-    ax.set_yticklabels([chain_to_label(x) for x in pivot_df.index])
-
-    ax.set_xlabel("Watermark percentage")
-    ax.set_ylabel("Chain length")
-    ax.set_title(title)
-
-    for i in range(values.shape[0]):
-        for j in range(values.shape[1]):
-            val = values[i, j]
-            text = "NA" if np.isnan(val) else fmt.format(val)
-            ax.text(j, i, text, ha="center", va="center", fontsize=11, fontweight="bold")
-
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label(cbar_label)
-
-    save_fig(fig, FIGURES_DIR / filename)
-
-    if SHOW_PLOTS:
-        plt.show()
-    else:
-        plt.close(fig)
-
-
-def plot_signal_by_chain(
-    summary_df: pd.DataFrame,
-    value_col: str,
-    std_col: str,
-    title: str,
-    ylabel: str,
-    filename: str,
-) -> None:
-    chains = sorted(summary_df["chain_extension"].dropna().unique())
-    if len(chains) == 0:
-        print(f"Skipped empty line plot: {title}")
-        return
-
-    fig, axes = plt.subplots(1, len(chains), figsize=(6 * len(chains), 4.5), sharey=True)
-    if len(chains) == 1:
-        axes = [axes]
-
-    for ax, chain in zip(axes, chains):
-        sub = summary_df[summary_df["chain_extension"] == chain].sort_values("watermark_pct")
-        x = sub["watermark_pct"].to_numpy()
-        y = sub[value_col].to_numpy()
-        s = sub[std_col].fillna(0).to_numpy()
-
-        ax.plot(x, y, marker="o", linewidth=2, label="Mean watermark signal")
-        ax.fill_between(x, y - s, y + s, alpha=0.18, label="± 1 std dev")
-        ax.axhline(0.0, linestyle="--", linewidth=1)
-
-        ax.set_title(f"Chain +{int(chain)}")
-        ax.set_xlabel("Watermark percentage")
-        ax.set_xticks(x)
-        ax.set_xticklabels([pct_to_label(v) for v in x])
-        ax.set_ylabel(ylabel)
-        ax.grid(True, alpha=0.25)
-        ax.legend()
-
-    fig.suptitle(title, fontsize=18)
-    save_fig(fig, FIGURES_DIR / filename)
-
-    if SHOW_PLOTS:
-        plt.show()
-    else:
-        plt.close(fig)
-
-
-def plot_grouped_attack_panels(
-    attack_df: pd.DataFrame,
-    metric_col: str,
-    ylabel: str,
-    filename: str,
-    title: str,
-) -> None:
-    panels = [
-        {
-            "attack_name": "blind_pruning",
-            "panel_title": "Blind pruning",
-            "x_col": "pruning_rate",
-            "hue_col": None,
-            "x_label": "Pruning rate",
-        },
-        {
-            "attack_name": "blind_finetune",
-            "panel_title": "Blind fine-tuning",
-            "x_col": "finetune_epochs",
-            "hue_col": "attack_learning_rate",
-            "x_label": "Fine-tune epochs",
-        },
-        {
-            "attack_name": "informed_pruning",
-            "panel_title": "Informed pruning",
-            "x_col": "pruning_rate",
-            "hue_col": "clean_preservation_weight",
-            "x_label": "Pruning rate",
-        },
-        {
-            "attack_name": "informed_finetune",
-            "panel_title": "Informed fine-tuning",
-            "x_col": "finetune_epochs",
-            "hue_col": "lambda_adv",
-            "x_label": "Fine-tune epochs",
-        },
-    ]
-
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    axes = axes.flatten()
-
-    for ax, panel in zip(axes, panels):
-        sub = attack_df[attack_df["attack_name"] == panel["attack_name"]].copy()
-
-        if sub.empty or metric_col not in sub.columns:
-            ax.set_title(panel["panel_title"])
-            ax.text(0.5, 0.5, "No data", ha="center", va="center")
-            ax.axis("off")
-            continue
-
-        x_col = panel["x_col"]
-        hue_col = panel["hue_col"]
-
-        sub = sub.dropna(subset=[x_col, metric_col])
-
-        if sub.empty:
-            ax.set_title(panel["panel_title"])
-            ax.text(0.5, 0.5, "No valid data", ha="center", va="center")
-            ax.axis("off")
-            continue
-
-        if hue_col is None or hue_col not in sub.columns or sub[hue_col].dropna().nunique() <= 1:
-            grouped = (
-                sub.groupby(x_col)[metric_col]
-                .agg(["mean", "std"])
-                .reset_index()
-                .sort_values(x_col)
-            )
-
-            x = grouped[x_col].to_numpy()
-            y = grouped["mean"].to_numpy()
-            s = grouped["std"].fillna(0).to_numpy()
-
-            ax.plot(x, y, marker="o", linewidth=2)
-            ax.fill_between(x, y - s, y + s, alpha=0.18)
-        else:
-            for hue_val, hue_sub in sorted(sub.groupby(hue_col), key=lambda item: str(item[0])):
-                grouped = (
-                    hue_sub.groupby(x_col)[metric_col]
-                    .agg(["mean", "std"])
-                    .reset_index()
-                    .sort_values(x_col)
-                )
-
-                x = grouped[x_col].to_numpy()
-                y = grouped["mean"].to_numpy()
-                s = grouped["std"].fillna(0).to_numpy()
-
-                ax.plot(x, y, marker="o", linewidth=2, label=f"{hue_col}={hue_val}")
-                ax.fill_between(x, y - s, y + s, alpha=0.12)
-
-            ax.legend(fontsize=9)
-
-        if metric_col in {"gap_retention_ratio"}:
-            ax.axhline(1.0, linestyle="--", linewidth=1, alpha=0.7)
-            ax.axhline(0.0, linestyle=":", linewidth=1, alpha=0.7)
-        elif metric_col in {"attack_success_by_confidence"}:
-            ax.set_ylim(-0.05, 1.05)
-
-        ax.set_title(panel["panel_title"])
-        ax.set_xlabel(panel["x_label"])
-        ax.set_ylabel(ylabel)
-        ax.grid(True, alpha=0.25)
-
-    fig.suptitle(title, fontsize=18)
-    save_fig(fig, FIGURES_DIR / filename)
-
-    if SHOW_PLOTS:
-        plt.show()
-    else:
-        plt.close(fig)
-
-
-def plot_attack_success_bar(attack_df: pd.DataFrame, filename: str) -> None:
-    if attack_df.empty or "attack_success_by_confidence" not in attack_df.columns:
-        print("Skipped attack success bar plot: no valid attack data")
-        return
-
-    summary = (
-        attack_df.groupby("attack_name")["attack_success_by_confidence"]
-        .mean()
-        .sort_values(ascending=False)
-    )
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar(summary.index, summary.values)
-    ax.set_ylim(0, 1)
-    ax.set_ylabel("Attack success rate")
-    ax.set_title(f"Attack success rate by confidence ({DATASET_NAME})")
-    ax.grid(True, axis="y", alpha=0.25)
-
-    for i, v in enumerate(summary.values):
-        ax.text(i, v + 0.02, f"{v:.2f}", ha="center", va="bottom", fontweight="bold")
-
-    save_fig(fig, FIGURES_DIR / filename)
-
-    if SHOW_PLOTS:
-        plt.show()
-    else:
-        plt.close(fig)
-
-
-# ============================================================
-# LOAD BASE BENCHMARK
-# ============================================================
-base_csv = find_latest_csv(RESULTS_DIR, "base_benchmark", DATASET_NAME)
-base_df = load_csv_or_none(base_csv)
-
-if base_df is None or base_df.empty:
-    raise FileNotFoundError(
-        f"Could not find base benchmark CSV for {DATASET_NAME} in {RESULTS_DIR}"
-    )
-
-print(f"Loaded base benchmark: {base_df.shape}")
-print(f"Base CSV: {base_csv}")
-
-base_df = ensure_numeric(
-    base_df,
-    [
-        "watermark_pct",
-        "chain_extension",
-        "benign_test_acc",
-        "watermarked_test_acc",
-        "accuracy_drop",
-        "reference_suspect_minus_benign_confidence",
-        "reference_watermarked_minus_benign_confidence",
-        "control_suspect_minus_benign_confidence",
-    ],
-)
-
-if "reference_signal_positive_vs_benign" in base_df.columns:
-    base_df["reference_signal_positive_vs_benign"] = boolish_to_float(
-        base_df["reference_signal_positive_vs_benign"]
-    )
-
-if "control_signal_positive_vs_benign" in base_df.columns:
-    base_df["control_signal_positive_vs_benign"] = boolish_to_float(
-        base_df["control_signal_positive_vs_benign"]
-    )
-
-# Core metrics from the base benchmark file you showed
-base_df["watermark_signal"] = base_df["reference_suspect_minus_benign_confidence"]
-base_df["control_gap"] = base_df["control_suspect_minus_benign_confidence"]
-base_df["utility_drop"] = base_df["accuracy_drop"]
-
-# Summary over repeats
-base_summary = (
-    base_df.groupby(["chain_extension", "watermark_pct"])
-    .agg(
-        mean_signal=("watermark_signal", "mean"),
-        std_signal=("watermark_signal", "std"),
-        mean_control_gap=("control_gap", "mean"),
-        std_control_gap=("control_gap", "std"),
-        mean_utility_drop=("utility_drop", "mean"),
-        std_utility_drop=("utility_drop", "std"),
-        mean_benign_acc=("benign_test_acc", "mean"),
-        mean_watermarked_acc=("watermarked_test_acc", "mean"),
-        positive_rate=("reference_signal_positive_vs_benign", "mean")
-        if "reference_signal_positive_vs_benign" in base_df.columns
-        else ("watermark_signal", lambda s: np.nan),
-        count=("watermark_signal", "count"),
-    )
-    .reset_index()
-)
-
-# Heatmaps
-signal_heatmap = base_summary.pivot(
-    index="chain_extension", columns="watermark_pct", values="mean_signal"
-).sort_index().sort_index(axis=1)
-
-accuracy_drop_heatmap = base_summary.pivot(
-    index="chain_extension", columns="watermark_pct", values="mean_utility_drop"
-).sort_index().sort_index(axis=1)
-
-control_gap_heatmap = base_summary.pivot(
-    index="chain_extension", columns="watermark_pct", values="mean_control_gap"
-).sort_index().sort_index(axis=1)
-
-positive_rate_heatmap = base_summary.pivot(
-    index="chain_extension", columns="watermark_pct", values="positive_rate"
-).sort_index().sort_index(axis=1)
-
-plot_heatmap(
-    pivot_df=signal_heatmap,
-    title=f"Mean watermark signal heatmap ({DATASET_NAME})",
-    cbar_label="Watermark signal\n(reference suspect confidence - benign confidence)",
-    filename=f"{DATASET_NAME.lower()}_base_signal_heatmap.png",
-    center_zero=True,
-    fmt="{:+.3f}",
-)
-
-plot_signal_by_chain(
-    summary_df=base_summary,
-    value_col="mean_signal",
-    std_col="std_signal",
-    title=(
-        f"Watermark signal vs watermark percentage ({DATASET_NAME})\n"
-        f"Positive = watermarked model is more confident than benign on verification graphs"
-    ),
-    ylabel="Watermark signal",
-    filename=f"{DATASET_NAME.lower()}_base_signal_gap_by_chain.png",
-)
-
-plot_heatmap(
-    pivot_df=accuracy_drop_heatmap,
-    title=f"Mean accuracy drop heatmap ({DATASET_NAME})",
-    cbar_label="Accuracy drop\n(benign test acc - watermarked test acc)",
-    filename=f"{DATASET_NAME.lower()}_base_accuracy_drop_heatmap.png",
-    center_zero=True,
-    fmt="{:+.3f}",
-)
-
-plot_heatmap(
-    pivot_df=control_gap_heatmap,
-    title=f"Benign control gap heatmap ({DATASET_NAME})",
-    cbar_label="Control gap\n(benign copy confidence - benign confidence)",
-    filename=f"{DATASET_NAME.lower()}_base_control_gap_heatmap.png",
-    center_zero=True,
-    fmt="{:+.3f}",
-)
-
-plot_heatmap(
-    pivot_df=positive_rate_heatmap,
-    title=f"Positive-signal rate heatmap ({DATASET_NAME})",
-    cbar_label="Rate of repeats with positive signal",
-    filename=f"{DATASET_NAME.lower()}_base_positive_rate_heatmap.png",
-    center_zero=False,
-    fmt="{:.2f}",
-    cmap="YlGn",
-)
-
-
-# ============================================================
-# LOAD ATTACK BENCHMARK
-# ============================================================
-attack_csv = find_latest_csv(RESULTS_DIR, "attack_benchmark", DATASET_NAME)
-attack_df = load_csv_or_none(attack_csv)
-
-if attack_df is None or attack_df.empty:
-    print(f"No attack benchmark CSV found for {DATASET_NAME} in {RESULTS_DIR}")
-else:
-    print(f"Loaded attack benchmark: {attack_df.shape}")
-    print(f"Attack CSV: {attack_csv}")
-
-    attack_df = ensure_numeric(
-        attack_df,
-        [
-            "watermark_pct",
-            "chain_extension",
-            "pruning_rate",
-            "finetune_epochs",
-            "attack_learning_rate",
-            "clean_preservation_weight",
-            "lambda_adv",
-            "suspect_test_acc",
-            "suspect_minus_benign_confidence",
-            "watermarked_minus_benign_confidence",
-            "baseline_confidence_gap",
-            "gap_retention_ratio",
-        ],
-    )
-
-    if "attack_success_by_confidence" in attack_df.columns:
-        attack_df["attack_success_by_confidence"] = boolish_to_float(
-            attack_df["attack_success_by_confidence"]
-        )
-
-    if "detected_by_confidence" in attack_df.columns:
-        attack_df["detected_by_confidence"] = boolish_to_float(
-            attack_df["detected_by_confidence"]
-        )
-
-    # Exclude reference rows for the attack robustness plots
-    attack_only_df = attack_df[attack_df["attack_family"] != "reference"].copy()
-
-    if not attack_only_df.empty:
-        plot_grouped_attack_panels(
-            attack_df=attack_only_df,
-            metric_col="gap_retention_ratio",
-            ylabel="Gap retention ratio",
-            filename=f"{DATASET_NAME.lower()}_attack_gap_retention.png",
-            title=(
-                f"Attack robustness: retained watermark signal ({DATASET_NAME})\n"
-                f"1.0 = full signal remains, 0.0 = erased, negative = reversed"
-            ),
-        )
-
-        plot_grouped_attack_panels(
-            attack_df=attack_only_df,
-            metric_col="attack_success_by_confidence",
-            ylabel="Attack success rate",
-            filename=f"{DATASET_NAME.lower()}_attack_success_rate.png",
-            title=(
-                f"Attack success by confidence ({DATASET_NAME})\n"
-                f"1.0 = attack removed positive watermark signal"
-            ),
-        )
-
-        plot_grouped_attack_panels(
-            attack_df=attack_only_df,
-            metric_col="suspect_test_acc",
-            ylabel="Suspect test accuracy",
-            filename=f"{DATASET_NAME.lower()}_attack_suspect_accuracy.png",
-            title=f"Post-attack suspect accuracy ({DATASET_NAME})",
-        )
-
-        plot_attack_success_bar(
-            attack_df=attack_only_df,
-            filename=f"{DATASET_NAME.lower()}_attack_success_bar.png",
-        )
-
-print("\nDone.")
+def _mean_ci(series: pd.Series):
+    """Return (mean, half-width of 95% CI) for a series."""
+    n   = len(series)
+    m   = series.mean()
+    if n < 2:
+        return m, 0.0
+    se  = series.std(ddof=1) / np.sqrt(n)
+    return m, 1.96 * se
+
+
+def pivot_mean(df, index, columns, values):
+    """Pivot with mean aggregation."""
+    return df.pivot_table(index=index, columns=columns, values=values,
+                          aggfunc="mean")
+
+
+# ── individual panels ─────────────────────────────────────────────────────────
+
+def plot_accuracy_heatmap(ax, df):
+    """Heatmap: watermarked test accuracy by pct × chain_extension."""
+    piv = pivot_mean(df, "pct_label", "chain_label", "watermarked_test_acc")
+    piv = piv.reindex(index=PCT_ORDER, columns=CHAIN_ORDER)
+
+    im  = ax.imshow(piv.values, cmap="RdYlGn", vmin=0.3, vmax=0.8,
+                    aspect="auto")
+    ax.set_xticks(range(len(CHAIN_ORDER)))
+    ax.set_xticklabels(CHAIN_ORDER)
+    ax.set_yticks(range(len(PCT_ORDER)))
+    ax.set_yticklabels(PCT_ORDER)
+    ax.set_xlabel("Chain extension")
+    ax.set_ylabel("Watermark %")
+    ax.set_title("Watermarked test accuracy", fontweight="bold")
+    ax.grid(False)
+
+    for i in range(piv.shape[0]):
+        for j in range(piv.shape[1]):
+            v = piv.values[i, j]
+            if not np.isnan(v):
+                ax.text(j, i, f"{v:.3f}", ha="center", va="center",
+                        fontsize=8, color="black")
+    plt.colorbar(im, ax=ax, shrink=0.8)
+
+
+def plot_accuracy_drop_heatmap(ax, df):
+    """Heatmap: accuracy drop by pct × chain_extension."""
+    piv = pivot_mean(df, "pct_label", "chain_label", "accuracy_drop")
+    piv = piv.reindex(index=PCT_ORDER, columns=CHAIN_ORDER)
+
+    im  = ax.imshow(piv.values, cmap="RdYlGn_r", vmin=-0.1, vmax=0.15,
+                    aspect="auto")
+    ax.set_xticks(range(len(CHAIN_ORDER)))
+    ax.set_xticklabels(CHAIN_ORDER)
+    ax.set_yticks(range(len(PCT_ORDER)))
+    ax.set_yticklabels(PCT_ORDER)
+    ax.set_xlabel("Chain extension")
+    ax.set_ylabel("Watermark %")
+    ax.set_title("Accuracy drop (benign − watermarked)", fontweight="bold")
+    ax.grid(False)
+
+    for i in range(piv.shape[0]):
+        for j in range(piv.shape[1]):
+            v = piv.values[i, j]
+            if not np.isnan(v):
+                ax.text(j, i, f"{v:+.3f}", ha="center", va="center",
+                        fontsize=8, color="black")
+    plt.colorbar(im, ax=ax, shrink=0.8)
+
+
+def plot_confidence_gap_by_chain(ax, df):
+    """Bar chart: mean confidence gap (watermarked − benign) by chain extension."""
+    df = df.copy()
+    df["conf_gap"] = (df["reference_watermarked_test_watermarked_avg_confidence"]
+                      - df["reference_watermarked_test_benign_avg_confidence"])
+
+    grouped = df.groupby("chain_label")["conf_gap"]
+    means, cis, labels = [], [], []
+    for lbl in CHAIN_ORDER:
+        if lbl in grouped.groups:
+            m, ci = _mean_ci(grouped.get_group(lbl))
+            means.append(m); cis.append(ci); labels.append(lbl)
+
+    colors = [CHAIN_COLORS[l] for l in labels]
+    bars = ax.bar(labels, means, color=colors, width=0.5,
+                  yerr=cis, capsize=5, error_kw={"linewidth": 1.2})
+    ax.axhline(0, color=GRAY, linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Chain extension")
+    ax.set_ylabel("Confidence gap")
+    ax.set_title("Watermark confidence signal\n(watermarked − benign avg)", fontweight="bold")
+    for bar, m in zip(bars, means):
+        ax.text(bar.get_x() + bar.get_width()/2, m + (0.001 if m >= 0 else -0.003),
+                f"{m:+.4f}", ha="center", va="bottom" if m >= 0 else "top",
+                fontsize=8)
+
+
+def plot_confidence_gap_by_pct(ax, df):
+    """Bar chart: mean confidence gap by watermark percentage."""
+    df = df.copy()
+    df["conf_gap"] = (df["reference_watermarked_test_watermarked_avg_confidence"]
+                      - df["reference_watermarked_test_benign_avg_confidence"])
+
+    grouped = df.groupby("pct_label")["conf_gap"]
+    means, cis, labels = [], [], []
+    for lbl in PCT_ORDER:
+        if lbl in grouped.groups:
+            m, ci = _mean_ci(grouped.get_group(lbl))
+            means.append(m); cis.append(ci); labels.append(lbl)
+
+    colors = [PCT_COLORS[l] for l in labels]
+    bars = ax.bar(labels, means, color=colors, width=0.5,
+                  yerr=cis, capsize=5, error_kw={"linewidth": 1.2})
+    ax.axhline(0, color=GRAY, linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Watermark %")
+    ax.set_ylabel("Confidence gap")
+    ax.set_title("Watermark confidence signal\nby watermark percentage", fontweight="bold")
+    for bar, m in zip(bars, means):
+        ax.text(bar.get_x() + bar.get_width()/2, m + (0.001 if m >= 0 else -0.003),
+                f"{m:+.4f}", ha="center", va="bottom" if m >= 0 else "top",
+                fontsize=8)
+
+
+def plot_distance_to_benign(ax, df):
+    """Grouped bars: mean distance to benign distribution by pct × chain."""
+    col   = "reference_watermarked_test_avg_distance_to_benign"
+    piv   = pivot_mean(df, "pct_label", "chain_label", col)
+    piv   = piv.reindex(index=PCT_ORDER, columns=CHAIN_ORDER)
+
+    n_groups = len(PCT_ORDER)
+    n_chains = len(CHAIN_ORDER)
+    x        = np.arange(n_groups)
+    width    = 0.22
+
+    for i, ch in enumerate(CHAIN_ORDER):
+        vals = [piv.loc[p, ch] if ch in piv.columns and p in piv.index
+                else np.nan for p in PCT_ORDER]
+        ax.bar(x + (i - 1) * width, vals, width,
+               label=ch, color=CHAIN_COLORS[ch], alpha=0.85)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(PCT_ORDER)
+    ax.set_xlabel("Watermark %")
+    ax.set_ylabel("Distance (avg)")
+    ax.set_title("Avg distance to benign distribution", fontweight="bold")
+    ax.legend(title="Chain ext.", fontsize=8, title_fontsize=8)
+
+
+def plot_signal_positive_rate(ax, df):
+    """Stacked bars: fraction of runs where signal_positive_vs_benign is True."""
+    col = "reference_signal_positive_vs_benign"
+
+    piv = df.groupby(["pct_label", "chain_label"])[col].mean().unstack("chain_label")
+    piv = piv.reindex(index=PCT_ORDER, columns=CHAIN_ORDER).fillna(0)
+
+    x     = np.arange(len(PCT_ORDER))
+    width = 0.22
+    for i, ch in enumerate(CHAIN_ORDER):
+        ax.bar(x + (i - 1) * width, piv[ch].values, width,
+               label=ch, color=CHAIN_COLORS[ch], alpha=0.85)
+
+    ax.set_ylim(0, 1.1)
+    ax.set_xticks(x)
+    ax.set_xticklabels(PCT_ORDER)
+    ax.set_xlabel("Watermark %")
+    ax.set_ylabel("Fraction positive")
+    ax.set_title("Detection rate\n(signal positive vs benign)", fontweight="bold")
+    ax.axhline(0.5, color=GRAY, linewidth=0.8, linestyle="--", label="50%")
+    ax.legend(title="Chain ext.", fontsize=8, title_fontsize=8)
+
+
+def plot_scatter_acc_vs_confidence(ax, df):
+    """Scatter: watermarked accuracy vs confidence gap, coloured by chain extension."""
+    df = df.copy()
+    df["conf_gap"] = (df["reference_watermarked_test_watermarked_avg_confidence"]
+                      - df["reference_watermarked_test_benign_avg_confidence"])
+
+    for ch in CHAIN_ORDER:
+        sub = df[df["chain_label"] == ch]
+        ax.scatter(sub["watermarked_test_acc"], sub["conf_gap"],
+                   color=CHAIN_COLORS[ch], label=ch,
+                   s=50, alpha=0.75, edgecolors="white", linewidths=0.4)
+
+    ax.axhline(0, color=GRAY, linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Watermarked test accuracy")
+    ax.set_ylabel("Confidence gap")
+    ax.set_title("Accuracy vs confidence signal", fontweight="bold")
+    ax.legend(title="Chain ext.", fontsize=8, title_fontsize=8)
+
+
+def plot_pvalue_distribution(ax, df):
+    """Box plot of p-values (vs benign) across seeds, grouped by chain extension."""
+    col = "reference_watermarked_test_p_value_vs_benign"
+    data_by_chain = [df[df["chain_label"] == ch][col].dropna().values
+                     for ch in CHAIN_ORDER]
+
+    bp = ax.boxplot(data_by_chain, patch_artist=True, widths=0.45,
+                    medianprops={"color": "black", "linewidth": 1.5})
+    for patch, ch in zip(bp["boxes"], CHAIN_ORDER):
+        patch.set_facecolor(CHAIN_COLORS[ch])
+        patch.set_alpha(0.75)
+
+    ax.axhline(0.05, color=CORAL, linewidth=1.2, linestyle="--", label="p=0.05")
+    ax.set_xticks(range(1, len(CHAIN_ORDER)+1))
+    ax.set_xticklabels(CHAIN_ORDER)
+    ax.set_xlabel("Chain extension")
+    ax.set_ylabel("p-value (vs benign)")
+    ax.set_title("p-value distribution\n(watermarked vs benign)", fontweight="bold")
+    ax.legend(fontsize=8)
+
+
+def plot_benign_vs_watermarked_conf(ax, df):
+    """Scatter: benign avg confidence vs watermarked avg confidence per run."""
+    benign_col = "reference_watermarked_test_benign_avg_confidence"
+    wm_col     = "reference_watermarked_test_watermarked_avg_confidence"
+
+    for ch in CHAIN_ORDER:
+        sub = df[df["chain_label"] == ch]
+        ax.scatter(sub[benign_col], sub[wm_col],
+                   color=CHAIN_COLORS[ch], label=ch,
+                   s=50, alpha=0.75, edgecolors="white", linewidths=0.4)
+
+    lims = [min(df[benign_col].min(), df[wm_col].min()) - 0.01,
+            max(df[benign_col].max(), df[wm_col].max()) + 0.01]
+    ax.plot(lims, lims, color=GRAY, linewidth=0.8, linestyle="--")
+    ax.set_xlim(lims); ax.set_ylim(lims)
+    ax.set_xlabel("Benign avg confidence")
+    ax.set_ylabel("Watermarked avg confidence")
+    ax.set_title("Confidence: benign vs watermarked\n(above diagonal → watermark raises conf.)", fontweight="bold")
+    ax.legend(title="Chain ext.", fontsize=8, title_fontsize=8)
+
+
+# ── main figure ───────────────────────────────────────────────────────────────
+
+def build_figure(df: pd.DataFrame) -> plt.Figure:
+    fig = plt.figure(figsize=(18, 20))
+    fig.suptitle("GNN Watermark Benchmark — ENZYMES (pct × chain_extension sweep)",
+                 fontsize=14, fontweight="bold", y=0.98)
+
+    gs = gridspec.GridSpec(4, 3, figure=fig,
+                           hspace=0.55, wspace=0.38,
+                           top=0.94, bottom=0.04)
+
+    plot_accuracy_heatmap(fig.add_subplot(gs[0, 0]), df)
+    plot_accuracy_drop_heatmap(fig.add_subplot(gs[0, 1]), df)
+    plot_benign_vs_watermarked_conf(fig.add_subplot(gs[0, 2]), df)
+
+    plot_confidence_gap_by_chain(fig.add_subplot(gs[1, 0]), df)
+    plot_confidence_gap_by_pct(fig.add_subplot(gs[1, 1]), df)
+    plot_distance_to_benign(fig.add_subplot(gs[1, 2]), df)
+
+    plot_signal_positive_rate(fig.add_subplot(gs[2, 0]), df)
+    plot_pvalue_distribution(fig.add_subplot(gs[2, 1]), df)
+    plot_scatter_acc_vs_confidence(fig.add_subplot(gs[2, 2]), df)
+
+    # bottom row: summary note
+    ax_note = fig.add_subplot(gs[3, :])
+    ax_note.axis("off")
+
+    # per-run summary table
+    summary = df.groupby(["pct_label", "chain_label"]).agg(
+        seeds=("seed", "nunique"),
+        mean_wm_acc=("watermarked_test_acc", "mean"),
+        mean_acc_drop=("accuracy_drop", "mean"),
+        pct_positive=("reference_signal_positive_vs_benign", "mean"),
+    ).reset_index()
+    summary.columns = ["WM %", "Chain", "Seeds",
+                       "Mean WM acc", "Mean acc drop", "% signal positive"]
+
+    col_labels = summary.columns.tolist()
+    cell_text  = [[str(r["WM %"]), str(r["Chain"]),
+                   str(int(r["Seeds"])),
+                   f"{r['Mean WM acc']:.3f}",
+                   f"{r['Mean acc drop']:+.3f}",
+                   f"{r['% signal positive']*100:.0f}%"]
+                  for _, r in summary.iterrows()]
+
+    tbl = ax_note.table(cellText=cell_text, colLabels=col_labels,
+                        loc="center", cellLoc="center")
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(8)
+    tbl.scale(1, 1.35)
+
+    for (r, c), cell in tbl.get_celld().items():
+        cell.set_edgecolor("#CCCCCC")
+        if r == 0:
+            cell.set_facecolor("#378ADD")
+            cell.set_text_props(color="white", fontweight="bold")
+        elif r % 2 == 0:
+            cell.set_facecolor("#F7F6F2")
+
+    ax_note.set_title("Summary table (means over seeds)", fontsize=10,
+                      fontweight="bold", pad=8)
+
+    return fig
+
+
+# ── entry point ───────────────────────────────────────────────────────────────
+
+def main():
+    path = sys.argv[1] if len(sys.argv) > 1 else "src/benchmark/results/base/base_benchmark_enzymes_20260428_130211.csv"
+    print(f"Loading {path} …")
+    df  = load(path)
+    print(f"  {len(df)} rows, {df['seed'].nunique()} seeds, "
+          f"{df['watermark_pct'].nunique()} pct levels, "
+          f"{df['chain_extension'].nunique()} chain levels")
+
+    fig = build_figure(df)
+
+    out = path.replace(".csv", "_visual.png")
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print(f"Saved → {out}")
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()

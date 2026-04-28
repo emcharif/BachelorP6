@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import copy
+import os
 import json
 import csv
 import re
@@ -530,4 +531,4 @@ def run_all_base_benchmarks(
 
 
 if __name__ == "__main__":
-    run_base_benchmark(dataset_name="PROTEINS", repeats=3, verification_count=20)
+    run_base_benchmark(dataset_name="ENZYMES", repeats=5, verification_count=50)

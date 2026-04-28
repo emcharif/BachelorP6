@@ -26,12 +26,12 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from GNN.Evaluator import Evaluator
-from inject_chain import inject_chain
-from model_attacks import model_attacks
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
+from src.GNN.Trainer import Trainer
+from src.GNN.Evaluator import Evaluator
+from src.inject_chain import inject_chain
+from src.benchmark.attack_benchmark.model_attacks import model_attacks
 
 
 def slugify_dataset_name(dataset_name: str) -> str:
@@ -670,9 +670,9 @@ def run_attack_benchmark(
 
 if __name__ == "__main__":
     run_attack_benchmark(
-        dataset_name="PROTEINS",
-        repeats=3,
-        verification_count=20,
+        dataset_name="ENZYMES",
+        repeats=5,
+        verification_count=50,
         watermark_pct=0.10,
         chain_extension=2,
         epochs=50,
