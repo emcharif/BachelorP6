@@ -3,7 +3,7 @@ import os
 import random
 
 from dotenv import load_dotenv
-from torch_geometric.data import Data  # was missing
+from torch_geometric.data import Data
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -20,14 +20,12 @@ class Main:
     graphAnalyzer = GraphAnalyzer()
     utilityFunctions = UtilityFunctions()
 
-    # Seed once — shared across the entire pipeline
     load_dotenv()
     key = os.getenv("SECRET_KEY")
 
     def visualize_watermark(self, dataset_name="PROTEINS"):
         evaluator = Evaluator()
 
-        # Seed once — shared across the entire pipeline
         load_dotenv()
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
@@ -55,12 +53,14 @@ class Main:
             watermarked_graph_edges=watermarked_graph_min.edge_index.tolist()
         )
 
-        return benign_edges, delta_edges
-    
+        # Fixed: return all four values instead of undefined benign_edges, delta_edges
+        return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
+
     async def check_model(self, model):
 
         model_loader = ModelLoader()
 
+        # Read and load the suspect model once — removed duplicate loading block
         file_bytes = await model.read()
         suspect_model = model_loader.load_model(file_bytes=file_bytes)
 
@@ -70,7 +70,6 @@ class Main:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        dataset_name = "PROTEINS"
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
         global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
         is_binary = self.utilityFunctions.is_binary(dataset)
@@ -103,10 +102,6 @@ class Main:
             modified = inject_chain(graph, global_chain_length, is_binary, rng)
             verification_graphs.append(modified)
 
-        file_bytes = model_file.file.read()
-        loader = ModelLoader()
-        suspect_model = loader.load_model(file_bytes=file_bytes)
-
         result = watermarked_trainer.is_model_trained_on_watermarked_dataset(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
@@ -116,8 +111,3 @@ class Main:
         )
 
         return result
-
-
-if __name__ == "__main__":
-    main = Main()
-    main.visualize_watermark(dataset_name="PROTEINS")
