@@ -7,21 +7,29 @@ from src.main import Main
 
 app = FastAPI(title="Watermark Detection", version="1.0.0")
 
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 class DatasetRequest(BaseModel):
     dataset_name: str
 
 main = Main()
 
+
 @app.post("/api/visualize_watermark")
 def watermark_visualization(request: DatasetRequest):
     """
-    Visualizes two watermarked graphs from specified dataset
-    1: longest watermark insertion
-    2: shortest watermark insertion
+    Visualizes two watermarked graphs from specified dataset:
+    1. Graph with the longest existing chain (max insertion)
+    2. Graph with the shortest existing chain (min insertion)
     """
-
-    benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min = main.visualize_watermark(dataset_name=request.dataset_name)
+    benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min = main.visualize_watermark(
+        dataset_name=request.dataset_name
+    )
 
     return {
         "benign_edges_max": benign_edges_max,
@@ -34,12 +42,12 @@ def watermark_visualization(request: DatasetRequest):
 @app.post("/api/check_model")
 async def test_suspect_model(model: UploadFile = File(...)):
     """
-    Accept a .pth suspect model and return the p-value from the behavioural
+    Accept a .pth suspect model and return whether it was trained
+    on a watermarked dataset.
     """
+    behavioural_match = await main.check_model(model)
 
-    p_value = await main.check_model(model)
-
-    return {"p_value": float(p_value)}
+    return {"behavioural_match": bool(behavioural_match)}
 
 
 if __name__ == "__main__":

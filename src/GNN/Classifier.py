@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as Function
 import torch
 
-from torch_geometric.nn import GINConv, global_max_pool
+from torch_geometric.nn import GINConv, global_add_pool
 
 class Classifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
@@ -43,9 +43,9 @@ class Classifier(nn.Module):
         x3 = Function.relu(self.conv3(x2, edge_index))
 
         out = torch.cat([
-            global_max_pool(x1, batch),
-            global_max_pool(x2, batch),
-            global_max_pool(x3, batch),
+            global_add_pool(x1, batch),
+            global_add_pool(x2, batch),
+            global_add_pool(x3, batch),
         ], dim=1)
 
         return self.classify(out)
