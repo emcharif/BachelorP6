@@ -81,26 +81,54 @@ def test_ring_all_nodes_have_two_neighbors():
 
 
 def test_get_global_chain_length_returns_int():
-    result = analyzer.get_global_chain_length([linear])
+    result, _ = analyzer.get_global_chain_length([linear])
     assert isinstance(result, int)
 
 
 def test_get_global_chain_length_greater_than_zero():
-    result = analyzer.get_global_chain_length([linear])
+    result, _ = analyzer.get_global_chain_length([linear])
     assert result > 0
 
 
 def test_get_global_chain_length_ring_returns_one():
-    result = analyzer.get_global_chain_length([ring])
+    result, _ = analyzer.get_global_chain_length([ring])
     assert result == 1
 
 
 def test_get_global_chain_length_larger_graph_beats_smaller():
     small = make_graph([[0,1],[1,0],[1,2],[2,1]])                       
     large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3]])    
-    result_small = analyzer.get_global_chain_length([small])
-    result_large = analyzer.get_global_chain_length([large])
+    result_small, _ = analyzer.get_global_chain_length([small])
+    result_large, _ = analyzer.get_global_chain_length([large])
     assert result_large > result_small
+
+
+#test af get_shortest_chain_length
+def test_get_shortest_chain_length_smaller_graph_beats_larger():
+    small = make_graph([[0,1],[1,0],[1,2],[2,1],[3,0],[0,3],[1,3],[3,1]])                       
+    large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3],[4,5],[5,4]])  
+
+    graphs = [small, large]
+
+    shortest_chain, _ = analyzer.get_shortest_chain_length(graphs)
+    assert shortest_chain == 2
+
+def test_get_shortest_chain_length_return_correct_index():
+    no_dangling = make_graph([[0,1],[1,0],[1,2],[2,1],[0,2],[2,0]])                        
+
+    shortest_chain, graph_index = analyzer.get_shortest_chain_length([no_dangling])
+    assert shortest_chain == 1
+    assert graph_index == 0
+
+def test_get_shortest_chain_length_contain_no_dangling():
+    small = make_graph([[0,1],[1,0],[1,2],[2,1],[3,0],[0,3],[1,3],[3,1]])                       
+    large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3],[4,5],[5,4]])  
+
+    graphs = [small, large]
+
+    _, graph_index = analyzer.get_shortest_chain_length(graphs)
+    assert graph_index == 0
+
 
 
 #test af get_dangling_chain_length
