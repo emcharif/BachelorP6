@@ -104,7 +104,7 @@ class Evaluator:
             if len(chain_starts) != 0:
                 dangling = []
                 for d in chain_starts:
-                    length, edge_node = utility.get_dangling_chain_length(d, neighbors)
+                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
                     dangling.append((d, length, edge_node))
                 max_length = max(dangling, key=lambda x: x[1])
                 longest = [d for d in dangling if d[1] == max_length[1]]
@@ -118,7 +118,7 @@ class Evaluator:
 
             # The injected chain tip is the last node — highest node id in the graph
             # Walk forward from expected_edge_node and verify chain length
-            actual_length, tip = utility.get_dangling_chain_length(expected_edge_node, neighbors)
+            actual_length, tip = analyzer.get_dangling_chain_length(expected_edge_node, neighbors)
 
             if actual_length >= chain_length:
                 verified += 1
