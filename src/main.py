@@ -22,9 +22,8 @@ class Main:
     key = os.getenv("SECRET_KEY")
 
     def visualize_watermark(self, dataset_name="PROTEINS"):
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
+ 
+        rng = random.Random(self.key)
 
         # ── Load dataset ───────────────────────────────────────────────
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
@@ -54,6 +53,7 @@ class Main:
 
     async def check_model(self, model):
 
+        rng = random.Random(self.key)
         model_loader = ModelLoader()
 
         # Read and load the suspect model once — removed duplicate loading block
@@ -61,10 +61,6 @@ class Main:
         suspect_model = model_loader.load_model(file_bytes=file_bytes)
 
         dataset_name = model_loader.identify_dataset(suspect_model)
-
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
 
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
         global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
