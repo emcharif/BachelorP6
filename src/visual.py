@@ -286,7 +286,7 @@ def plot_benign_vs_watermarked_conf(ax, df):
 
 def build_figure(df: pd.DataFrame) -> plt.Figure:
     fig = plt.figure(figsize=(18, 20))
-    fig.suptitle("GNN Watermark Benchmark — ENZYMES (pct × chain_extension sweep)",
+    fig.suptitle("GNN Watermark Benchmark — Proteins (pct × chain_extension sweep)",
                  fontsize=14, fontweight="bold", y=0.98)
 
     gs = gridspec.GridSpec(4, 3, figure=fig,
@@ -350,7 +350,7 @@ def build_figure(df: pd.DataFrame) -> plt.Figure:
 # ── entry point ───────────────────────────────────────────────────────────────
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "src/benchmark/results/base/base_benchmark_enzymes_20260428_130211.csv"
+    path = sys.argv[1] if len(sys.argv) > 1 else "src/benchmark/results/base/base_benchmark_proteins_20260428_124956.csv"
     print(f"Loading {path} …")
     df  = load(path)
     print(f"  {len(df)} rows, {df['seed'].nunique()} seeds, "
