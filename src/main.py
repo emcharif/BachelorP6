@@ -10,15 +10,16 @@ from utils import UtilityFunctions
 from graph_analyzer import GraphAnalyzer
 from GNN.Trainer import Trainer
 from GNN.Evaluator import Evaluator
-from torch_geometric.data import Data
 from inject_chain import inject_chain
+from load_model import ModelLoader
 
 
 class Main:
-    def main(self, dataset_name = "ENZYMES"):
 
-        graphAnalyzer = GraphAnalyzer()
-        utilityFunctions = UtilityFunctions()
+    graphAnalyzer = GraphAnalyzer()
+    utilityFunctions = UtilityFunctions()
+
+    def visualize_watermark(self, dataset_name = "ENZYMES"):
         evaluator = Evaluator()
 
         # Seed once — shared across the entire pipeline
@@ -26,17 +27,17 @@ class Main:
         key = os.getenv("SECRET_KEY")
         rng = random.Random(key)
 
-        # ── 1. Load dataset ───────────────────────────────────────────────
-        dataset = utilityFunctions.load_dataset(name=dataset_name)
+        # ── Load dataset ───────────────────────────────────────────────
+        dataset = self.utilityFunctions.load_dataset(name=dataset_name)
 
-        global_chain_length = graphAnalyzer.get_global_chain_length(dataset)
+        global_chain_length = self.graphAnalyzer.get_global_chain_length(dataset)
         print(f"Global chain length for {dataset_name}: {global_chain_length}")
 
-        is_binary = utilityFunctions.is_binary(dataset)
+        is_binary = self.utilityFunctions.is_binary(dataset)
         print(f"Is the dataset {dataset_name} binary? {is_binary}")
 
-        # ── 2. Select and watermark graphs ────────────────────────────────
-        selected_graphs, unselected_graphs = utilityFunctions.graphs_to_watermark(
+        # ── Select and watermark graphs ────────────────────────────────
+        selected_graphs, _ = self.utilityFunctions.graphs_to_watermark(
             dataset=dataset, rng=rng
         )
 
@@ -62,7 +63,7 @@ class Main:
         # We pass complete_dataset here and also use it for real training below.
         watermarked_trainer = Trainer(dataset=complete_dataset)
 
-        watermark_present = evaluator.verify_watermark(
+        watermark_present = watermarked_trainer.verify_watermark(
             original_dataset=list(dataset),
             watermarked_graphs=watermarked_graphs,
             chain_length=global_chain_length
@@ -89,20 +90,12 @@ class Main:
         # Replace suspect_model with the actual suspect model you want to test
         suspect_model = watermarked_model
 
-        # Create separate verification graphs from unselected graphs
-        verification_graphs = []
-        for graph in unselected_graphs[:20]:  # take a small held-out set
-            modified = inject_chain(graph, global_chain_length, is_binary, rng)
-            verification_graphs.append(modified)
-
-        test_results = evaluator.test_models_with_watermark(
+        behavioural_match = benign_trainer.is_model_trained_on_watermarked_dataset(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
             watermarked_graphs=verification_graphs
         )
-
-        behavioural_match = test_results["p_value_vs_watermarked"] < 0.05
         print(f"Suspect model behaviourally matches watermarked model: {behavioural_match}")
 
         # ── 7. Edge diff (first graph as example) ────────────────────────
