@@ -25,6 +25,7 @@ class Trainer:
         val_dataset: list = None,       # was missing from signature
         test_dataset: list = None,      # was missing from signature
         dataset_name: str = None,       # accepted for API compatibility
+        watermarked_graphs: list = None,
         batch_size=64,
         train_pct=0.7,
         val_pct=0.15,
@@ -38,6 +39,7 @@ class Trainer:
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
+        self.watermarked_graphs = watermarked_graphs
 
         self.batch_size = batch_size
         self.train_pct = train_pct
@@ -130,6 +132,8 @@ class Trainer:
         test_idx = indices[train_size + val_size:]
 
         self.train_dataset = [dataset[i] for i in train_idx]
+        if self.watermarked_graphs is not None:
+            self.train_dataset = self.train_dataset + self.watermarked_graphs
         self.val_dataset = [dataset[i] for i in val_idx]
         self.test_dataset = [dataset[i] for i in test_idx]
 
@@ -259,7 +263,7 @@ class Trainer:
         print(f"Agreement with benign model (baseline p): {agree_benign:.2f}")
         print(f"p-value: {result.pvalue:.4f}")
 
-        return result.pvalue < 0.05
+        return bool(result.pvalue < 0.05)
 
     def verify_watermark(
         self,
