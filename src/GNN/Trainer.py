@@ -3,8 +3,8 @@ import random
 import os
 
 from torch_geometric.loader import DataLoader
-from torch_geometric.data import Batch          # was missing
-from scipy.stats import binomtest               # was missing
+from torch_geometric.data import Batch
+from scipy.stats import binomtest
 from GNN.Classifier import Classifier
 from dotenv import load_dotenv
 import torch.nn.functional as Function
@@ -21,10 +21,10 @@ class Trainer:
     def __init__(
         self,
         dataset: list = None,
-        train_dataset: list = None,     # was missing from signature
-        val_dataset: list = None,       # was missing from signature
-        test_dataset: list = None,      # was missing from signature
-        dataset_name: str = None,       # accepted for API compatibility
+        train_dataset: list = None,
+        val_dataset: list = None,
+        test_dataset: list = None,
+        dataset_name: str = None,
         batch_size=64,
         train_pct=0.7,
         val_pct=0.15,
@@ -32,6 +32,8 @@ class Trainer:
         hidden_dim=128,
         epochs=50,
         seed=None,
+        use_watermark_head: bool = False,
+        watermark_loss_weight: float = 1.0,
     ):
         self.dataset = dataset
         self.dataset_name = dataset_name
@@ -54,6 +56,9 @@ class Trainer:
 
         self.input_dim = None
         self.output_dim = None
+
+        self.use_watermark_head = use_watermark_head
+        self.watermark_loss_weight = watermark_loss_weight
 
         if (
             self.train_dataset is not None
@@ -147,12 +152,21 @@ class Trainer:
         )
 
     def evaluate(self, loader):
+        """Evaluate classification accuracy.
+
+        Safe for both plain models and models with use_watermark_head=True,
+        which return a (class_logits, wm_score) tuple from forward().
+        """
         self.model.eval()
         correct = 0
         total = 0
         with torch.no_grad():
             for batch in loader:
-                pred = self.model(batch).argmax(dim=1)
+                out = self.model(batch)
+                # Guard: watermark head active → forward returns a tuple
+                if isinstance(out, tuple):
+                    out = out[0]
+                pred = out.argmax(dim=1)
                 correct += (pred == batch.y).sum().item()
                 total += batch.y.size(0)
         return correct / total if total > 0 else 0.0
@@ -167,8 +181,21 @@ class Trainer:
             total_loss = 0.0
 
             for batch in self.train_loader:
-                logits = self.model(batch)
-                loss = Function.cross_entropy(logits, batch.y)
+                if self.use_watermark_head and hasattr(batch, "is_watermarked"):
+                    class_logits, wm_scores = self.model(
+                        batch,
+                        return_watermark_score=True,
+                    )
+
+                    class_loss = Function.cross_entropy(class_logits, batch.y)
+
+                    wm_targets = batch.is_watermarked.view(-1, 1).float()
+                    wm_loss = Function.binary_cross_entropy(wm_scores, wm_targets)
+
+                    loss = class_loss + self.watermark_loss_weight * wm_loss
+                else:
+                    class_logits = self.model(batch)
+                    loss = Function.cross_entropy(class_logits, batch.y)
 
                 opt.zero_grad()
                 loss.backward()
@@ -184,8 +211,14 @@ class Trainer:
                     f"Val Acc: {self.evaluate(self.val_loader):.4f}"
                 )
 
-        print(f"Final Test Accuracy (modeltype: {modeltype}): {self.evaluate(self.test_loader):.4f}")
-        torch.save(self.model.state_dict(), f"models/{self.dataset_name}/{modeltype}_model.pth")
+        final_acc = self.evaluate(self.test_loader)
+        print(f"Final Test Accuracy (modeltype: {modeltype}): {final_acc:.4f}")
+
+        if self.dataset_name is not None and modeltype is not None:
+            model_dir = f"models/{self.dataset_name}"
+            os.makedirs(model_dir, exist_ok=True)
+            torch.save(self.model.state_dict(), f"{model_dir}/{modeltype}_model.pth")
+
         return self.model
 
     def get_predictions(self, model, dataset: list):
@@ -194,9 +227,12 @@ class Trainer:
         confidences = []
         with torch.no_grad():
             for graph in dataset:
-                batch = Batch.from_data_list([graph])   # Batch now imported
-                logits = model(batch)
-                probs = torch.softmax(logits, dim=1)
+                batch = Batch.from_data_list([graph])
+                out = model(batch)
+                # Guard: watermark head active → forward returns a tuple
+                if isinstance(out, tuple):
+                    out = out[0]
+                probs = torch.softmax(out, dim=1)
                 pred = probs.argmax(dim=1).item()
                 conf = probs.max(dim=1).values.item()
                 predictions.append(pred)
@@ -253,7 +289,7 @@ class Trainer:
 
         agree_watermark_count = sum(node_level_agreements)
 
-        result = binomtest(agree_watermark_count, len(watermarked_graphs), p=agree_benign)  # now imported
+        result = binomtest(agree_watermark_count, len(watermarked_graphs), p=agree_benign)
 
         print(f"Agreement with watermarked model: {agree_watermark_count}/{len(watermarked_graphs)}")
         print(f"Agreement with benign model (baseline p): {agree_benign:.2f}")
