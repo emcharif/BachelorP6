@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from graph_analyzer import GraphAnalyzer
 from utils import UtilityFunctions
 from inject_chain import inject_chain
-from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 
 import torch.nn.functional as F
@@ -56,23 +55,15 @@ class ModelLoader:
             global_chain_length, _ = self.analyzer.get_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
-            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
+            selected_graphs, _ = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
 
             watermarked_graphs = [
                 inject_chain(g, global_chain_length, is_binary, rng)
                 for g in selected_graphs
             ]
 
-            clean_unselected = [
-                Data(x=g.x, edge_index=g.edge_index,
-                    edge_attr=g.edge_attr if g.edge_attr is not None else None, y=g.y)
-                for g in unselected_graphs
-            ]
-
-            complete_dataset = watermarked_graphs + clean_unselected
-
             # ── Train reference benign + watermarked models ───────────────────────
-            watermarked_trainer = Trainer(dataset=complete_dataset, dataset_name=dataset_name)
+            watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
             watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
 
             benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
