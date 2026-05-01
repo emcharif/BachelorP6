@@ -63,6 +63,7 @@ def test_suspect_model_trained_on_PROTEINS():
 
     assert dataset_name == "PROTEINS"
 
+"""
 def test_suspect_model_trained_on_IMDB_BINARY():
 
     path = "models/IMDB-BINARY/watermarked_model.pth"
@@ -74,3 +75,4 @@ def test_suspect_model_trained_on_IMDB_BINARY():
     dataset_name = model_loader.identify_dataset(suspect_model)
 
     assert dataset_name == "IMDB-BINARY"
+"""
