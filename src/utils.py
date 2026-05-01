@@ -53,6 +53,34 @@ class UtilityFunctions:
         unselected_graphs = [dataset[i] for i in unselected_idx]
 
         return selected_graphs, unselected_graphs
+
+    def graphs_to_watermark_same_label(self, dataset: list, graph_index: int, rng: random.Random, percentage: float = 0.05):
+
+        label = dataset[graph_index].y
+
+        graphs_same_label = []
+        unselected_graphs = []
+        for graph in dataset:
+            if graph.y == label:
+                graphs_same_label.append(graph)
+            else:
+                unselected_graphs.append(graph)
+
+        number_of_graphs_to_watermark = int(len(dataset) * percentage)
+        indices = list(range(len(graphs_same_label)))
+        rng.shuffle(indices)
+
+        selected_idx = indices[:number_of_graphs_to_watermark]
+        unselected_idx = indices[number_of_graphs_to_watermark:]
+
+        selected_graphs = [graphs_same_label[i] for i in selected_idx]
+        unselected_same_label_graphs = [graphs_same_label[i] for i in unselected_idx]
+
+        if unselected_same_label_graphs is not None:
+            for graph in unselected_same_label_graphs:
+                unselected_graphs.append(graph)
+
+        return selected_graphs, unselected_graphs
     
     def dif_watermarked_and_benign_graph_edges(self, selected_graph_edges: tuple[list, list], watermarked_graph_edges: tuple[list, list]):
         """
