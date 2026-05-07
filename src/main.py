@@ -70,13 +70,13 @@ class Main:
             dataset=dataset, rng=rng
         )
 
-        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
-        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
-
         verification_graphs = []
         for graph in unselected_graphs[:50]:
             modified = inject_chain(graph, global_chain_length, is_binary, rng)
             verification_graphs.append(modified)
+
+        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
+        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
         trainer = Trainer(dataset=dataset)
 
