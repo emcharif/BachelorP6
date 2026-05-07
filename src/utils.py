@@ -28,7 +28,7 @@ class UtilityFunctions:
         return dangling_chain[0]
     
     @staticmethod
-    def is_binary(dataset):
+    def is_binary(dataset) -> bool:
         for graph in dataset:
             if graph.x is not None:
                 unique_values = graph.x.unique()

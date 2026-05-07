@@ -14,7 +14,7 @@ model_loader = ModelLoader()
 rng = random.Random(1234)
 dataset = utils.load_dataset(name = "ENZYMES")
 
-global_chain_length, _ = analyzer.get_global_chain_length(dataset)
+global_chain_length, _ = analyzer.get_longest_global_chain_length(dataset)
 is_binary = utils.is_binary(dataset)
 selected_graphs, _ = utils.graphs_to_watermark(dataset=dataset, rng=rng)
 

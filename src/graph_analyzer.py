@@ -1,14 +1,37 @@
 class GraphAnalyzer:    
-    def search_graph(self, graph):
+    def search_graph(self, graph) -> tuple[object, list[int], dict[int, set[int]]]:
+        """
+        Identifies linear chains starting from leaf nodes and traces them to cluster boundaries.
+
+        The algorithm builds an adjacency list and identifies 'dangling' nodes (degree 1). 
+        For each dangling node, it traverses a path of degree-2 nodes until it hits 
+         a junction (degree > 2). The traversal stops at the last node of the linear 
+        chain—the 'exit' node—immediately before entering the cluster junction.
+
+        Note:
+            This method only processes chains that begin with a leaf node. Isolated 
+            cycles (e.g., squares or triangles) without a dangling 'tail' are 
+            ignored as they contain no degree-1 nodes to initiate the search.
+
+        Args:
+            graph: A graph object containing 'edge_index' (e.g., PyG Data object).
+
+        Returns:
+            A tuple containing:
+                - graph: The original input graph object.
+                - chain_starts: A list of 'boundary' nodes where linear branches 
+                    connect to a junction or cluster.
+                - neighbors: The full adjacency list {node_id: {neighbor_set}}.
+        """
         total_edges = graph.edge_index
         source_nodes_list = total_edges[0].tolist()
-        dist_nodes_list = total_edges[1].tolist()
+        dest_nodes_list = total_edges[1].tolist()
 
         edges = []
         for index in range(len(source_nodes_list)):
-            edges.append((source_nodes_list[index], dist_nodes_list[index]))
+            edges.append((source_nodes_list[index], dest_nodes_list[index]))
 
-        # Build undirected neighbors dict
+        # neighbors is an adjacency list representation: {node_id: {set of neighbors}}
         neighbors = {}
         for src, dst in edges:
             if src not in neighbors:
@@ -19,9 +42,11 @@ class GraphAnalyzer:
             neighbors[dst].add(src)
 
         # Find all dangling nodes — nodes with only one unique neighbor
-        all_dangling = set(node for node, nbrs in neighbors.items() if len(nbrs) == 1)
+        all_dangling = set()
+        for node, nbrs in neighbors.items():
+            if len(nbrs) == 1:
+                all_dangling.add(node)
 
-        # Traverse each chain and find both ends
         chain_starts = []
         visited_chains = set()
 
@@ -32,7 +57,10 @@ class GraphAnalyzer:
             current = node
             previous = None
             while True:
-                nbrs = [n for n in neighbors[current] if n != previous]
+                nbrs = []
+                for neighbor in neighbors[current]:
+                    if neighbor != previous:
+                        nbrs.append(neighbor)
                 if len(nbrs) == 0:
                     break
                 next_node = nbrs[0]
@@ -45,10 +73,9 @@ class GraphAnalyzer:
             visited_chains.add(current)
             chain_starts.append(current)
 
-
         return graph, chain_starts, neighbors
     
-    def get_global_chain_length(self, dataset):
+    def get_longest_global_chain_length(self, dataset):
         max_length = 0
         graph_index = 0
         for i, graph in enumerate(dataset):
@@ -64,7 +91,7 @@ class GraphAnalyzer:
 
         return max_length + 1, graph_index
 
-    def get_shortest_chain_length(self, dataset):
+    def get_shortest_global_chain_length(self, dataset):
         """returns the shortest dangling chain across the dataset and index of the graph
         """
         min_length = float('inf')
@@ -78,9 +105,9 @@ class GraphAnalyzer:
                     graph_index = i
         
         if graph_index is None:
-            return 1, 0
+            return 0
         
-        return min_length + 1, graph_index
+        return graph_index
     
     def get_dangling_chain_length(self, startnode, neighbors):
         """returns the length of the dangling chain starting at startnode

@@ -46,16 +46,16 @@ def inject_chain(
         )
 
     graph = graph.clone()
-    utilityFunctions = UtilityFunctions()
-    graphAnalyzer = GraphAnalyzer()
+    utility_functions = UtilityFunctions()
+    graph_analyzer = GraphAnalyzer()
 
-    graph, chain_starts, neighbors = graphAnalyzer.search_graph(graph)
+    graph, chain_starts, neighbors = graph_analyzer.search_graph(graph)
 
     dangling_nodes_lengths = []
 
     if len(chain_starts) != 0:
         for d in chain_starts:
-            length, edge_node = graphAnalyzer.get_dangling_chain_length(d, neighbors)
+            length, edge_node = graph_analyzer.get_dangling_chain_length(d, neighbors)
             dangling_nodes_lengths.append((d, length, edge_node))
 
         max_length = max(dangling_nodes_lengths, key=lambda x: x[1])
@@ -65,7 +65,7 @@ def inject_chain(
     else:
         longest_dangling_nodes = [(node, 0, node) for node in neighbors.keys()]
 
-    longest_dangling_node = utilityFunctions.select_dangling_node(
+    longest_dangling_node = utility_functions.select_dangling_node(
         longest_dangling_nodes, rng
     )
 
