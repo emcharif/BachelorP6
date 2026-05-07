@@ -1,8 +1,8 @@
 import torch
 import random
-from graph_analyzer import GraphAnalyzer
+from src.graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
-from utils import UtilityFunctions
+from src.utils import UtilityFunctions
 
 
 def inject_chain(
@@ -132,7 +132,7 @@ def inject_chain(
         # ─────────────────────────────────────────────────────────────
         # Edge features
         # Kept subtle in both modes, since the strengthened variant only
-        # changes injected node features.
+        # changes injected node features. ttttesssttterreesssss!PIIKIPKIPKIKPIKPIKIPKIPKIKPKIIPKKPIKPIKKIPKK EDGE ATTRIBUTES
         # ─────────────────────────────────────────────────────────────
         if graph.edge_attr is not None:
             edge_mask = graph.edge_index[0, :-2] == edge_node

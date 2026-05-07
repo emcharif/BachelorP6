@@ -5,12 +5,12 @@ import os
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 from scipy.stats import binomtest
-from GNN.Classifier import Classifier
+from src.GNN.Classifier import Classifier
 from dotenv import load_dotenv
 import torch.nn.functional as Function
 
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
 
 
 class Trainer:

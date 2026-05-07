@@ -1,16 +1,13 @@
-import sys
 import os
 import random
 
 from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.dirname(__file__))
-
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from inject_chain import inject_chain
-from load_model import ModelLoader
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
+from src.GNN.Trainer import Trainer
+from src.inject_chain import inject_chain
+from src.load_model import ModelLoader
 
 
 class Main:
@@ -21,11 +18,19 @@ class Main:
     load_dotenv()
     key = os.getenv("SECRET_KEY")
 
-    def visualize_watermark(self, dataset_name="PROTEINS"):
- 
+    def visualize_watermark(self, dataset_name: str) -> tuple[tuple[list, list], tuple[list, list], tuple[list, list], tuple[list, list]]:
+        """
+        args:
+            dataset_name: str, given from frontend user
+        return:
+            Example of edge input: [[1,2,3,4],[2,1,4,1]] - [[source nodes],[destination nodes]]
+            benign_edges_max: edges of the benign graph with the longest dangling chain
+            delta_edges_max: edges difference between benign and watermarked versions of that graph
+            benign_edges_min: edges of the benign graph with the shortest dangling chain
+            delta_edges_min: edges difference between benign and watermarked versions of that graph
+        """
         rng = random.Random(self.key)
 
-        # ── Load dataset ───────────────────────────────────────────────
         dataset = self.utilityFunctions.load_dataset(name=dataset_name)
 
         max_length_graphs, graph_index_max = self.graphAnalyzer.get_global_chain_length(dataset)
@@ -48,7 +53,6 @@ class Main:
             watermarked_graph_edges=watermarked_graph_min.edge_index.tolist()
         )
 
-        # Fixed: return all four values instead of undefined benign_edges, delta_edges
         return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
 
     async def check_model(self, model):

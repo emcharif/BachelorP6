@@ -1,9 +1,9 @@
-from GNN.Trainer import Trainer
-from GNN.Classifier import Classifier
+from src.GNN.Trainer import Trainer
+from src.GNN.Classifier import Classifier
 from dotenv import load_dotenv
-from graph_analyzer import GraphAnalyzer
-from utils import UtilityFunctions
-from inject_chain import inject_chain
+from src.graph_analyzer import GraphAnalyzer
+from src.utils import UtilityFunctions
+from src.inject_chain import inject_chain
 from torch_geometric.loader import DataLoader
 
 import torch.nn.functional as F
