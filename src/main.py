@@ -33,14 +33,13 @@ class Main:
 
         dataset = self.utility_functions.load_dataset(dataset_name)
 
-        max_length_graphs, graph_index_max = self.graph_analyzer.get_longest_global_chain_length(dataset)
+        target_chain_length, graph_index_max = self.graph_analyzer.get_longest_global_chain_length(dataset)
         graph_index_min = self.graph_analyzer.get_shortest_global_chain_length(dataset)
 
         is_binary = self.utility_functions.is_binary(dataset)
-        print(f"Is the dataset {dataset_name} binary? {is_binary}")
 
-        watermarked_graph_max = inject_chain(dataset[graph_index_max], max_length_graphs, is_binary, rng)
-        watermarked_graph_min = inject_chain(dataset[graph_index_min], max_length_graphs, is_binary, rng)
+        watermarked_graph_max = inject_chain(dataset[graph_index_max], target_chain_length, is_binary, rng, "subtle")
+        watermarked_graph_min = inject_chain(dataset[graph_index_min], target_chain_length, is_binary, rng, "subtle")
 
         benign_edges_max, delta_edges_max = self.utility_functions.dif_watermarked_and_benign_graph_edges(
             selected_graph_edges=dataset[graph_index_max].edge_index.tolist(),

@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import Data
-from graph_analyzer import GraphAnalyzer
+from src.graph_analyzer import GraphAnalyzer
 
 
 def make_graph(edges):

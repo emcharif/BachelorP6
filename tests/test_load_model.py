@@ -1,5 +1,5 @@
-from load_model import ModelLoader
-from GNN.Classifier import Classifier
+from src.load_model import ModelLoader
+from src.GNN.Classifier import Classifier
 from unittest.mock import patch, MagicMock
 
 

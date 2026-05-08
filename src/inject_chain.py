@@ -3,14 +3,15 @@ import random
 from src.graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
 from src.utils import UtilityFunctions
+import numpy as np
 
 
 def inject_chain(
-    graph,
-    chain_length,
-    is_binary,
+    graph: object,
+    target_chain_length: int,
+    is_binary: bool,
     rng: random.Random,
-    feature_mode: str = "subtle",
+    feature_mode: str,
     ood_value: float = 2.0,
 ):
     """
@@ -20,7 +21,7 @@ def inject_chain(
     ----------
     graph:
         PyG graph to modify.
-    chain_length:
+    target_chain_length:
         Target dangling chain length.
     is_binary:
         Whether node/edge features are binary.
@@ -45,32 +46,39 @@ def inject_chain(
             "Expected 'subtle' or 'ood'."
         )
 
-    graph = graph.clone()
     utility_functions = UtilityFunctions()
     graph_analyzer = GraphAnalyzer()
 
     graph, chain_starts, neighbors = graph_analyzer.search_graph(graph)
+    chain_info = []
 
-    dangling_nodes_lengths = []
-
+    # OVERVEJ OM IF STATEMENT SKAL FLYTTES IND I GRAPH ANALYZEREN
     if len(chain_starts) != 0:
-        for d in chain_starts:
-            length, edge_node = graph_analyzer.get_dangling_chain_length(d, neighbors)
-            dangling_nodes_lengths.append((d, length, edge_node))
+        for chain_start in chain_starts:
+            length, chain_end = graph_analyzer.get_dangling_chain_length(chain_start, neighbors)
+            chain_info.append((chain_start, length, chain_end))
 
-        max_length = max(dangling_nodes_lengths, key=lambda x: x[1])
-        longest_dangling_nodes = [
-            d for d in dangling_nodes_lengths if d[1] == max_length[1]
-        ]
+        lengths = []
+        for chain in chain_info:
+            lengths.append(chain[1])
+
+        # .argmax returns the index of the highest value in the array
+        max_idx = np.argmax(lengths)
+        max_length = chain_info[max_idx]
+        
+        print("max_length: ", max_length)
+        # array af alle der har den længste længde af chain
+        nodeids_for_all_longest_chains = []
+        for chain in chain_info:
+            if chain[1] == max_length[1]:
+                nodeids_for_all_longest_chains.append(chain)
+
+        chain_info = utility_functions.select_dangling_node(nodeids_for_all_longest_chains, rng)
     else:
-        longest_dangling_nodes = [(node, 0, node) for node in neighbors.keys()]
+        chain_info = [0, 0, 0]
 
-    longest_dangling_node = utility_functions.select_dangling_node(
-        longest_dangling_nodes, rng
-    )
-
-    current_length = longest_dangling_node[1]
-    edge_node = longest_dangling_node[2]
+    current_length = chain_info[1]
+    chain_end = chain_info[2]
 
     num_nodes = (
         graph.x.shape[0]
@@ -78,11 +86,11 @@ def inject_chain(
         else int(graph.edge_index.max()) + 1
     )
 
-    while current_length < chain_length:
+    while current_length < target_chain_length:
         new_node_id = num_nodes
 
         new_edges = torch.tensor(
-            [[edge_node, new_node_id], [new_node_id, edge_node]],
+            [[chain_end, new_node_id], [new_node_id, chain_end]],
             dtype=graph.edge_index.dtype,
             device=graph.edge_index.device,
         )
@@ -90,41 +98,41 @@ def inject_chain(
         graph.edge_index = torch.cat([graph.edge_index, new_edges], dim=1)
         num_nodes += 1
 
-        neighbors[new_node_id] = {edge_node}
-        neighbors[edge_node].add(new_node_id)
+        neighbors[new_node_id] = {chain_end}
+        neighbors[chain_end].add(new_node_id)
 
         # ─────────────────────────────────────────────────────────────
         # Node features
         # ─────────────────────────────────────────────────────────────
         if graph.x is not None:
-            edge_node_features = graph.x[edge_node]
+            chain_end_features = graph.x[chain_end]
 
             if feature_mode == "ood":
                 # Strengthened variant:
                 # use fixed out-of-distribution feature values.
                 new_node_features = torch.full(
-                    (1, edge_node_features.shape[0]),
+                    (1, chain_end_features.shape[0]),
                     fill_value=ood_value,
-                    dtype=edge_node_features.dtype,
-                    device=edge_node_features.device,
+                    dtype=chain_end_features.dtype,
+                    device=chain_end_features.device,
                 )
 
             else:
                 # Subtle/original variant:
                 # copy binary features or slightly perturb continuous features.
                 if is_binary:
-                    new_node_features = edge_node_features.clone().unsqueeze(0)
+                    new_node_features = chain_end_features.clone().unsqueeze(0)
                 else:
                     deviations = torch.tensor(
                         [
                             rng.uniform(0.97, 1.02)
-                            for _ in range(edge_node_features.shape[0])
+                            for _ in range(chain_end_features.shape[0])
                         ],
-                        dtype=edge_node_features.dtype,
-                        device=edge_node_features.device,
+                        dtype=chain_end_features.dtype,
+                        device=chain_end_features.device,
                     )
                     new_node_features = (
-                        edge_node_features * deviations
+                        chain_end_features * deviations
                     ).unsqueeze(0)
 
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
@@ -135,7 +143,7 @@ def inject_chain(
         # changes injected node features. ttttesssttterreesssss!PIIKIPKIPKIKPIKPIKIPKIPKIKPKIIPKKPIKPIKKIPKK EDGE ATTRIBUTES
         # ─────────────────────────────────────────────────────────────
         if graph.edge_attr is not None:
-            edge_mask = graph.edge_index[0, :-2] == edge_node
+            edge_mask = graph.edge_index[0, :-2] == chain_end
             existing_edge_features = graph.edge_attr[edge_mask][0]
 
             if is_binary:
@@ -169,7 +177,7 @@ def inject_chain(
 
             graph.edge_attr = torch.cat([graph.edge_attr, new_edge_features], dim=0)
 
-        edge_node = new_node_id
+        chain_end = new_node_id
         current_length += 1
 
     clean_graph = Data(

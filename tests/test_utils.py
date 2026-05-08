@@ -2,7 +2,7 @@ import torch
 import random
 
 from torch_geometric.data import Data
-from utils import UtilityFunctions
+from src.utils import UtilityFunctions
 
 utils = UtilityFunctions()
 
