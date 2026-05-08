@@ -66,14 +66,12 @@ def inject_chain(
         max_idx = np.argmax(lengths)
         max_length = chain_info[max_idx]
         
-        print("max_length: ", max_length)
-        # array af alle der har den længste længde af chain
-        nodeids_for_all_longest_chains = []
+        longest_chains = []
         for chain in chain_info:
             if chain[1] == max_length[1]:
-                nodeids_for_all_longest_chains.append(chain)
+                longest_chains.append(chain)
 
-        chain_info = utility_functions.select_dangling_node(nodeids_for_all_longest_chains, rng)
+        chain_info = utility_functions.select_dangling_node(longest_chains, rng)
     else:
         chain_info = [0, 0, 0]
 
