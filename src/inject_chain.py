@@ -45,27 +45,29 @@ def inject_chain(
         )
 
     graph_analyzer = GraphAnalyzer()
+    graph.clone()
 
     graph, chain_starts, neighbors = graph_analyzer.search_graph(graph)
 
     if len(chain_starts) != 0:
-        selected_chain = graph_analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+        chain_info = graph_analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
     else:
-        selected_chain = [0, 0, 0]
+        chain_info = [0, 0, 0]
 
-    current_length = selected_chain[1]
-    chain_end = selected_chain[2]
+    selected_chain_length = chain_info[1]
+    selected_chain_end = chain_info[2]
 
     if graph.x is not None:
         num_nodes = graph.x.shape[0]
     else:
         num_nodes = int(graph.edge_index.max()) + 1
 
-    while current_length < target_chain_length:
+    while selected_chain_length < target_chain_length:
+        
         new_node_id = num_nodes
 
         new_edges = torch.tensor(
-            [[chain_end, new_node_id], [new_node_id, chain_end]],
+            [[selected_chain_end, new_node_id], [new_node_id, selected_chain_end]],
             dtype=graph.edge_index.dtype,
             device=graph.edge_index.device,
         )
@@ -73,93 +75,46 @@ def inject_chain(
         graph.edge_index = torch.cat([graph.edge_index, new_edges], dim=1)
         num_nodes += 1
 
-        neighbors[new_node_id] = {chain_end}
-        neighbors[chain_end].add(new_node_id)
+        neighbors[new_node_id] = {selected_chain_end}
+        neighbors[selected_chain_end].add(new_node_id)
 
-        # ─────────────────────────────────────────────────────────────
-        # Node features
-        # ─────────────────────────────────────────────────────────────
         if graph.x is not None:
-            chain_end_features = graph.x[chain_end]
+            selected_chain_end_features = graph.x[selected_chain_end]
 
             if feature_mode == "ood":
-                # Strengthened variant:
-                # use fixed out-of-distribution feature values.
                 new_node_features = torch.full(
-                    (1, chain_end_features.shape[0]),
+                    (1, selected_chain_end_features.shape[0]),
                     fill_value=ood_value,
-                    dtype=chain_end_features.dtype,
-                    device=chain_end_features.device,
+                    dtype=selected_chain_end_features.dtype,
+                    device=selected_chain_end_features.device,
                 )
 
             else:
-                # Subtle/original variant:
-                # copy binary features or slightly perturb continuous features.
                 if is_binary:
-                    new_node_features = chain_end_features.clone().unsqueeze(0)
+                    new_node_features = selected_chain_end_features.clone().unsqueeze(0)
                 else:
                     deviations = torch.tensor(
                         [
                             rng.uniform(0.97, 1.02)
-                            for _ in range(chain_end_features.shape[0])
+                            for _ in range(selected_chain_end_features.shape[0])
                         ],
-                        dtype=chain_end_features.dtype,
-                        device=chain_end_features.device,
+                        dtype=selected_chain_end_features.dtype,
+                        device=selected_chain_end_features.device,
                     )
                     new_node_features = (
-                        chain_end_features * deviations
+                        selected_chain_end_features * deviations
                     ).unsqueeze(0)
 
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 
-        # ─────────────────────────────────────────────────────────────
-        # Edge features
-        # Kept subtle in both modes, since the strengthened variant only
-        # changes injected node features. ttttesssttterreesssss!PIIKIPKIPKIKPIKPIKIPKIPKIKPKIIPKKPIKPIKKIPKK EDGE ATTRIBUTES
-        # ─────────────────────────────────────────────────────────────
-        if graph.edge_attr is not None:
-            edge_mask = graph.edge_index[0, :-2] == chain_end
-            existing_edge_features = graph.edge_attr[edge_mask][0]
+        selected_chain_end = new_node_id
+        selected_chain_length += 1
 
-            if is_binary:
-                new_edge_features = existing_edge_features.clone().unsqueeze(0)
-                new_edge_features = torch.cat(
-                    [new_edge_features, new_edge_features], dim=0
-                )
-            else:
-                deviations_a = torch.tensor(
-                    [
-                        rng.uniform(0.97, 1.03)
-                        for _ in range(existing_edge_features.shape[0])
-                    ],
-                    dtype=existing_edge_features.dtype,
-                    device=existing_edge_features.device,
-                )
-
-                deviations_b = torch.tensor(
-                    [
-                        rng.uniform(0.97, 1.03)
-                        for _ in range(existing_edge_features.shape[0])
-                    ],
-                    dtype=existing_edge_features.dtype,
-                    device=existing_edge_features.device,
-                )
-
-                new_edge_a = (existing_edge_features * deviations_a).unsqueeze(0)
-                new_edge_b = (existing_edge_features * deviations_b).unsqueeze(0)
-
-                new_edge_features = torch.cat([new_edge_a, new_edge_b], dim=0)
-
-            graph.edge_attr = torch.cat([graph.edge_attr, new_edge_features], dim=0)
-
-        chain_end = new_node_id
-        current_length += 1
-
-    clean_graph = Data(
+    injected_chain = Data(
         x=graph.x,
         edge_index=graph.edge_index,
         edge_attr=graph.edge_attr if graph.edge_attr is not None else None,
         y=graph.y,
     )
 
-    return clean_graph
+    return injected_chain

@@ -150,7 +150,6 @@ class GraphAnalyzer:
         return length, edge_node
     
     def select_longest_dangling_chain(self, chain_starts, neighbors, rng: random.Random):
-
         chain_info = []
         for chain_start in chain_starts:
             length, chain_end = self.get_dangling_chain_length(chain_start, neighbors)
@@ -168,7 +167,6 @@ class GraphAnalyzer:
         for chain in chain_info:
             if chain[1] == max_length[1]:
                 longest_chains.append(chain)
-
 
         rng.shuffle(longest_chains)
         return longest_chains[0]
