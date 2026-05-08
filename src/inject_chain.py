@@ -78,11 +78,10 @@ def inject_chain(
     current_length = chain_info[1]
     chain_end = chain_info[2]
 
-    num_nodes = (
-        graph.x.shape[0]
-        if graph.x is not None
-        else int(graph.edge_index.max()) + 1
-    )
+    if graph.x is not None:
+        num_nodes = graph.x.shape[0]
+    else:
+        num_nodes = int(graph.edge_index.max()) + 1
 
     while current_length < target_chain_length:
         new_node_id = num_nodes
