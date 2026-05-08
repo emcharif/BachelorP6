@@ -97,7 +97,7 @@ class Evaluator:
         verified = 0
 
         for i, graph in enumerate(watermarked_graphs):
-            _, chain_starts, neighbors = analyzer.search_graph(graph)
+            chain_starts, neighbors = analyzer.search_graph(graph)
 
             if len(chain_starts) != 0:
                 dangling = []

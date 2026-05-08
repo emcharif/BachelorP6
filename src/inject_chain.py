@@ -47,7 +47,7 @@ def inject_chain(
     graph_analyzer = GraphAnalyzer()
     graph.clone()
 
-    graph, chain_starts, neighbors = graph_analyzer.search_graph(graph)
+    chain_starts, neighbors = graph_analyzer.search_graph(graph)
 
     if len(chain_starts) != 0:
         chain_info = graph_analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
@@ -110,11 +110,10 @@ def inject_chain(
         selected_chain_end = new_node_id
         selected_chain_length += 1
 
-    injected_chain = Data(
+    watermarked_graph = Data(
         x=graph.x,
         edge_index=graph.edge_index,
-        edge_attr=graph.edge_attr if graph.edge_attr is not None else None,
         y=graph.y,
     )
 
-    return injected_chain
+    return watermarked_graph

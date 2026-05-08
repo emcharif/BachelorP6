@@ -2,7 +2,7 @@ import numpy as np
 import random
 
 class GraphAnalyzer:    
-    def search_graph(self, graph) -> tuple[object, list[int], dict[int, set[int]]]:
+    def search_graph(self, graph) -> tuple[list[int], dict[int, set[int]]]:
         """
         Identifies linear chains starting from leaf nodes and traces them to cluster boundaries.
 
@@ -76,13 +76,13 @@ class GraphAnalyzer:
             visited_chains.add(current)
             chain_starts.append(current)
 
-        return graph, chain_starts, neighbors
+        return chain_starts, neighbors
     
     def get_longest_global_chain_length(self, dataset):
         max_length = 0
         graph_index = 0
         for i, graph in enumerate(dataset):
-            _, chain_starts, neighbors = self.search_graph(graph)
+            chain_starts, neighbors = self.search_graph(graph)
             for node in chain_starts:
                 length, _ = self.get_dangling_chain_length(node, neighbors)
                 if length > max_length:
@@ -100,7 +100,7 @@ class GraphAnalyzer:
         min_length = float('inf')
         graph_index = None
         for i, graph in enumerate(dataset):
-            _, chain_starts, neighbors = self.search_graph(graph)
+            chain_starts, neighbors = self.search_graph(graph)
             for node in chain_starts:
                 length, _ = self.get_dangling_chain_length(node, neighbors)
                 if length < min_length:
