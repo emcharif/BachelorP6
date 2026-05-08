@@ -23,10 +23,6 @@ class UtilityFunctions:
 
         return dataset
     
-    def select_dangling_node(self, dangling_chain: list[tuple[int, int, int]], rng: random.Random):
-        rng.shuffle(dangling_chain)
-        return dangling_chain[0]
-    
     def is_binary(self, dataset: TUDataset) -> bool:
         for graph in dataset:
             if graph.x is not None:

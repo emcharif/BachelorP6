@@ -2,18 +2,16 @@ import torch
 import random
 from src.graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
-from src.utils import UtilityFunctions
-import numpy as np
 
 
 def inject_chain(
-    graph: object,
+    graph: Data,
     target_chain_length: int,
     is_binary: bool,
     rng: random.Random,
     feature_mode: str,
     ood_value: float = 2.0,
-):
+) -> Data:
     """
     Injects a dangling chain into a graph.
 
@@ -46,37 +44,17 @@ def inject_chain(
             "Expected 'subtle' or 'ood'."
         )
 
-    utility_functions = UtilityFunctions()
     graph_analyzer = GraphAnalyzer()
 
     graph, chain_starts, neighbors = graph_analyzer.search_graph(graph)
-    chain_info = []
 
-    # OVERVEJ OM IF STATEMENT SKAL FLYTTES IND I GRAPH ANALYZEREN
     if len(chain_starts) != 0:
-        for chain_start in chain_starts:
-            length, chain_end = graph_analyzer.get_dangling_chain_length(chain_start, neighbors)
-            chain_info.append((chain_start, length, chain_end))
-
-        lengths = []
-        for chain in chain_info:
-            lengths.append(chain[1])
-
-        # .argmax returns the index of the highest value in the array
-        max_idx = np.argmax(lengths)
-        max_length = chain_info[max_idx]
-        
-        longest_chains = []
-        for chain in chain_info:
-            if chain[1] == max_length[1]:
-                longest_chains.append(chain)
-
-        chain_info = utility_functions.select_dangling_node(longest_chains, rng)
+        selected_chain = graph_analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
     else:
-        chain_info = [0, 0, 0]
+        selected_chain = [0, 0, 0]
 
-    current_length = chain_info[1]
-    chain_end = chain_info[2]
+    current_length = selected_chain[1]
+    chain_end = selected_chain[2]
 
     if graph.x is not None:
         num_nodes = graph.x.shape[0]

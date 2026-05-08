@@ -1,3 +1,6 @@
+import numpy as np
+import random
+
 class GraphAnalyzer:    
     def search_graph(self, graph) -> tuple[object, list[int], dict[int, set[int]]]:
         """
@@ -145,3 +148,27 @@ class GraphAnalyzer:
         
         edge_node = current_node
         return length, edge_node
+    
+    def select_longest_dangling_chain(self, chain_starts, neighbors, rng: random.Random):
+
+        chain_info = []
+        for chain_start in chain_starts:
+            length, chain_end = self.get_dangling_chain_length(chain_start, neighbors)
+            chain_info.append((chain_start, length, chain_end))
+
+        lengths = []
+        for chain in chain_info:
+            lengths.append(chain[1])
+
+        # .argmax returns the index of the highest value in the array
+        max_idx = np.argmax(lengths)
+        max_length = chain_info[max_idx]
+        
+        longest_chains = []
+        for chain in chain_info:
+            if chain[1] == max_length[1]:
+                longest_chains.append(chain)
+
+
+        rng.shuffle(longest_chains)
+        return longest_chains[0]
