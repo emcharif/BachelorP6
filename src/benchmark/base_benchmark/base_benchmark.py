@@ -15,11 +15,6 @@ import torch.nn.functional as Function
 from torch_geometric.loader import DataLoader
 from dotenv import load_dotenv
 
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from inject_chain import inject_chain
-
 CURRENT_FILE = Path(__file__).resolve()
 
 SRC_ROOT = CURRENT_FILE.parents[2]
@@ -28,6 +23,11 @@ RESULTS_ROOT = SRC_ROOT / "benchmark" / "results"
 
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
+
+from utils import UtilityFunctions
+from graph_analyzer import GraphAnalyzer
+from GNN.Trainer import Trainer
+from inject_chain import inject_chain
 
 
 DEFAULT_DATASETS = ["ENZYMES", "PROTEINS"]
@@ -131,6 +131,54 @@ def build_watermarked_train_split(
 
     watermarked_train = watermarked_graphs + clean_graphs
 
+    return watermarked_train, watermarked_graphs, clean_graphs
+
+
+def build_watermarked_train_split_same_label(
+    train_clean,
+    watermark_pct: float,
+    target_chain_length: int,
+    is_binary: bool,
+    seed: int,
+    utility_functions: UtilityFunctions,
+    feature_mode: str,
+    use_watermark_head: bool,
+    graph_analyzer: GraphAnalyzer,
+):
+    # Find the graph with the longest chain to use as the label anchor
+    _, anchor_index = graph_analyzer.get_global_chain_length(train_clean)
+
+    rng_select = random.Random(seed + 101)
+    selected_graphs, unselected_graphs = utility_functions.graphs_to_watermark_same_label(
+        dataset=train_clean,
+        graph_index=anchor_index,
+        percentage=watermark_pct,
+        rng=rng_select,
+    )
+
+    rng_inject = random.Random(seed + 202)
+
+    watermarked_graphs = []
+    for graph in selected_graphs:
+        wm_graph = inject_chain(
+            copy.deepcopy(graph),
+            target_chain_length,
+            is_binary,
+            rng_inject,
+            feature_mode=feature_mode,
+        )
+        if use_watermark_head:
+            wm_graph = tag_graph(wm_graph, 1.0)
+        watermarked_graphs.append(wm_graph)
+
+    clean_graphs = []
+    for graph in unselected_graphs:
+        clean_graph = copy.deepcopy(graph)
+        if use_watermark_head:
+            clean_graph = tag_graph(clean_graph, 0.0)
+        clean_graphs.append(clean_graph)
+
+    watermarked_train = watermarked_graphs + clean_graphs
     return watermarked_train, watermarked_graphs, clean_graphs
 
 
@@ -307,6 +355,7 @@ def run_single_chain_experiment(
     watermark_loss_weight: float,
     experiment: str | None = None,
     section: str | None = None,
+    use_same_label: bool = False,
 ):
     if chain_extension < 1:
         raise ValueError("chain_extension must be >= 1")
@@ -383,6 +432,7 @@ def run_single_chain_experiment(
     results["train_size"] = len(train_clean)
     results["val_size"] = len(val_clean)
     results["test_size"] = len(test_clean)
+    results["use_same_label"] = use_same_label
 
     print(
         f"Global chain length: {global_chain_length} | "
@@ -391,18 +441,34 @@ def run_single_chain_experiment(
         f"Train={len(train_clean)} | Val={len(val_clean)} | Test={len(test_clean)}"
     )
 
-    watermarked_train, watermarked_training_graphs, clean_training_graphs = (
-        build_watermarked_train_split(
-            train_clean=train_clean,
-            watermark_pct=watermark_pct,
-            target_chain_length=target_chain_length,
-            is_binary=is_binary,
-            seed=seed,
-            utility_functions=utility_functions,
-            feature_mode=feature_mode,
-            use_watermark_head=use_watermark_head,
-        )
+    if use_same_label:
+        watermarked_train, watermarked_training_graphs, clean_training_graphs = (
+            build_watermarked_train_split_same_label(
+                train_clean=train_clean,
+                watermark_pct=watermark_pct,
+                target_chain_length=target_chain_length,
+                is_binary=is_binary,
+                seed=seed,
+                utility_functions=utility_functions,
+                feature_mode=feature_mode,
+                use_watermark_head=use_watermark_head,
+                graph_analyzer=graph_analyzer,
+            )
     )
+    else:
+        watermarked_train, watermarked_training_graphs, clean_training_graphs = (
+            build_watermarked_train_split(
+                train_clean=train_clean,
+                watermark_pct=watermark_pct,
+                target_chain_length=target_chain_length,
+                is_binary=is_binary,
+                seed=seed,
+                utility_functions=utility_functions,
+                feature_mode=feature_mode,
+                use_watermark_head=use_watermark_head,
+            )
+        )
+
 
     results["num_watermarked_train_graphs"] = len(watermarked_training_graphs)
     results["num_clean_train_graphs"] = len(clean_training_graphs)
@@ -557,6 +623,7 @@ def run_benchmark(
     use_watermark_head: bool = False,
     watermark_loss_weight: float = 1.0,
     results_subdir: str = "subtle",
+    use_same_label: bool = False,
 ):
     if watermark_percentages is None:
         watermark_percentages = DEFAULT_WATERMARK_PERCENTAGES
@@ -593,6 +660,7 @@ def run_benchmark(
                         watermark_loss_weight=watermark_loss_weight,
                         experiment=f"pct={pct}_chain=+{chain_extension}",
                         section=f"{variant_name}_watermark_pct_chain_extension",
+                        use_same_label=use_same_label,
                     )
                     all_results.append(result)
                 except Exception as e:
@@ -628,6 +696,7 @@ def run_all_chain_benchmarks(
     dataset_names=None,
     repeats: int = DEFAULT_REPEATS,
     verification_count: int = DEFAULT_VERIFICATION_COUNT,
+    use_same_label: bool = False,
     **kwargs,
 ):
     if dataset_names is None:
@@ -640,6 +709,7 @@ def run_all_chain_benchmarks(
             dataset_name=dataset_name,
             repeats=repeats,
             verification_count=verification_count,
+            use_same_label=use_same_label,
             **kwargs,
         )
         outputs[dataset_name] = {
