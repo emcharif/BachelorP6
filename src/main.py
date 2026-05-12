@@ -1,54 +1,60 @@
-import sys
 import os
 import random
 
 from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.dirname(__file__))
-
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from inject_chain import inject_chain
-from load_model import ModelLoader
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
+from src.GNN.Trainer import Trainer
+from src.inject_chain import inject_chain
+from src.load_model import ModelLoader
 
 
 class Main:
 
-    graphAnalyzer = GraphAnalyzer()
-    utilityFunctions = UtilityFunctions()
+    graph_analyzer = GraphAnalyzer()
+    utility_functions = UtilityFunctions()
 
     load_dotenv()
     key = os.getenv("SECRET_KEY")
 
-    def visualize_watermark(self, dataset_name="PROTEINS"):
- 
+    def visualize_watermark(self, dataset_name: str) -> tuple[tuple[list, list], tuple[list, list], tuple[list, list], tuple[list, list]]:
+        """
+        args:
+            dataset_name: str, given from frontend user
+        return:
+            Example of edge input: [[1,2,3,4],[2,1,4,1]] - [[source nodes],[destination nodes]]
+            benign_edges_max: edges of the benign graph with the longest dangling chain
+            delta_edges_max: edges difference between benign and watermarked versions of that graph
+            benign_edges_min: edges of the benign graph with the shortest dangling chain
+            delta_edges_min: edges difference between benign and watermarked versions of that graph
+        """
         rng = random.Random(self.key)
 
-        # ── Load dataset ───────────────────────────────────────────────
-        dataset = self.utilityFunctions.load_dataset(name=dataset_name)
+        dataset = self.utility_functions.load_dataset(dataset_name)
 
-        max_length_graphs, graph_index_max = self.graphAnalyzer.get_global_chain_length(dataset)
-        print(f"Global chain length for {dataset_name}: {max_length_graphs}")
-        min_length_selected_graphs, graph_index_min = self.graphAnalyzer.get_shortest_chain_length(dataset)
-        print(f"Minimum chain length for {dataset_name}: {min_length_selected_graphs}")
+        target_chain_length, graph_index_max = self.graph_analyzer.get_longest_global_chain_length(dataset)
+        graph_index_min = self.graph_analyzer.get_shortest_global_chain_length(dataset)
 
-        is_binary = self.utilityFunctions.is_binary(dataset)
-        print(f"Is the dataset {dataset_name} binary? {is_binary}")
+        is_binary = self.utility_functions.is_binary(dataset)
+        
+        # Longest benign chain and shortest watermarked chain injected
+        watermarked_graph_max = inject_chain(dataset[graph_index_max], target_chain_length, is_binary, rng, "subtle")
+        
+        # Shortest benign chain and longest watermarked chain injected
+        watermarked_graph_min = inject_chain(dataset[graph_index_min], target_chain_length, is_binary, rng, "subtle")
 
-        watermarked_graph_max = inject_chain(dataset[graph_index_max], max_length_graphs, is_binary, rng)
-        watermarked_graph_min = inject_chain(dataset[graph_index_min], max_length_graphs, is_binary, rng)
-
-        benign_edges_max, delta_edges_max = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=dataset[graph_index_max].edge_index.tolist(),
-            watermarked_graph_edges=watermarked_graph_max.edge_index.tolist()
+        benign_edges_max = dataset[graph_index_max].edge_index.tolist()
+        delta_edges_max = self.utility_functions.dif_watermarked_and_benign_graph_edges(
+            benign_edges=dataset[graph_index_max].edge_index.tolist(),
+            watermarked_edges=watermarked_graph_max.edge_index.tolist()
         )
-        benign_edges_min, delta_edges_min = self.utilityFunctions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=dataset[graph_index_min].edge_index.tolist(),
-            watermarked_graph_edges=watermarked_graph_min.edge_index.tolist()
+        benign_edges_min = dataset[graph_index_min].edge_index.tolist()
+        delta_edges_min = self.utility_functions.dif_watermarked_and_benign_graph_edges(
+            benign_edges=benign_edges_min,
+            watermarked_edges=watermarked_graph_min.edge_index.tolist()
         )
 
-        # Fixed: return all four values instead of undefined benign_edges, delta_edges
         return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
 
     async def check_model(self, model):
@@ -62,21 +68,21 @@ class Main:
 
         dataset_name = model_loader.identify_dataset(suspect_model)
 
-        dataset = self.utilityFunctions.load_dataset(name=dataset_name)
-        global_chain_length, _ = self.graphAnalyzer.get_global_chain_length(dataset)
-        is_binary = self.utilityFunctions.is_binary(dataset)
+        dataset = self.utility_functions.load_dataset(name=dataset_name)
+        global_chain_length, _ = self.graph_analyzer.get_longest_global_chain_length(dataset)
+        is_binary = self.utility_functions.is_binary(dataset)
 
-        _, unselected_graphs = self.utilityFunctions.graphs_to_watermark(
+        _, unselected_graphs = self.utility_functions.graphs_to_watermark(
             dataset=dataset, rng=rng
         )
-
-        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
-        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
         verification_graphs = []
         for graph in unselected_graphs[:50]:
             modified = inject_chain(graph, global_chain_length, is_binary, rng)
             verification_graphs.append(modified)
+
+        benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
+        watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
         trainer = Trainer(dataset=dataset)
 

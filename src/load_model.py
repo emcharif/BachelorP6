@@ -1,9 +1,9 @@
-from GNN.Trainer import Trainer
-from GNN.Classifier import Classifier
+from src.GNN.Trainer import Trainer
+from src.GNN.Classifier import Classifier
 from dotenv import load_dotenv
-from graph_analyzer import GraphAnalyzer
-from utils import UtilityFunctions
-from inject_chain import inject_chain
+from src.graph_analyzer import GraphAnalyzer
+from src.utils import UtilityFunctions
+from src.inject_chain import inject_chain
 from torch_geometric.loader import DataLoader
 
 import torch.nn.functional as F
@@ -52,7 +52,7 @@ class ModelLoader:
             dataset_name = path.split("/")[1]
 
             dataset = self.utils.load_dataset(name=dataset_name)
-            global_chain_length, _ = self.analyzer.get_global_chain_length(dataset)
+            global_chain_length, _ = self.analyzer.get_longest_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
             selected_graphs, _ = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)

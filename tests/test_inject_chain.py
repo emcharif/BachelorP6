@@ -1,33 +1,35 @@
-from utils import UtilityFunctions
-from inject_chain import inject_chain
+from src.utils import UtilityFunctions
+from src.inject_chain import inject_chain
 import torch
 import random
 
-RNG = random.Random(42)
+rng = random.Random(1234)
+utils = UtilityFunctions()
+
 
 def test_inject_chain_increases_node_count():
-    dataset = UtilityFunctions().load_dataset(name="IMDB-BINARY")
+    dataset = utils.load_dataset(name="ENZYMES")
     graph = dataset[0]
-    original_nodes = graph.x.shape[0]
-    modified = inject_chain(graph, chain_length=2, is_binary=True, rng=RNG)
-    assert modified.x.shape[0] >= original_nodes, "Node count should not decrease after injection"
+    original_num_nodes = graph.x.shape[0]
+    modified = inject_chain(graph, target_chain_length=2, is_binary=False, rng=rng, feature_mode="subtle")
+    assert modified.x.shape[0] >= original_num_nodes, "Node count should not decrease after injection"
 
 def test_inject_chain_x_edge_index_consistent():
-    dataset = UtilityFunctions().load_dataset(name="IMDB-BINARY")
+    dataset = utils.load_dataset(name="IMDB-BINARY")
     graph = dataset[0]
-    modified = inject_chain(graph, chain_length=2, is_binary=True, rng=RNG)
+    modified = inject_chain(graph, target_chain_length=2, is_binary=True, rng=rng, feature_mode="subtle")
     assert modified.x.shape[0] == modified.edge_index.max().item() + 1, \
         "x rows should match number of unique nodes in edge_index"
 
 def test_inject_chain_returns_clean_data():
-    dataset = UtilityFunctions().load_dataset(name="IMDB-BINARY")
+    dataset = utils.load_dataset(name="IMDB-BINARY")
     graph = dataset[0]
-    modified = inject_chain(graph, chain_length=2, is_binary=True, rng=RNG)
+    modified = inject_chain(graph, target_chain_length=2, is_binary=True, rng=rng, feature_mode="subtle")
     assert modified.x.shape[0] == modified.num_nodes, "num_nodes should match x"
 
 def test_inject_chain_preserves_label():
-    dataset = UtilityFunctions().load_dataset(name="IMDB-BINARY")
+    dataset = utils.load_dataset(name="IMDB-BINARY")
     graph = dataset[0]
     original_y = graph.y.clone()
-    modified = inject_chain(graph, chain_length=2, is_binary=True, rng=RNG)
+    modified = inject_chain(graph, target_chain_length=2, is_binary=True, rng=rng, feature_mode="subtle")
     assert torch.equal(modified.y, original_y), "Label should not change after injection"

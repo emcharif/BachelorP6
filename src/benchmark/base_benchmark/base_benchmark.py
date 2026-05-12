@@ -362,7 +362,7 @@ def run_single_chain_experiment(
     dataset = utility_functions.load_dataset(name=dataset_name)
 
     # FIX: get_global_chain_length returns a (length, graph_index) tuple — unpack it
-    global_chain_length, _ = graph_analyzer.get_global_chain_length(dataset)
+    global_chain_length, _ = graph_analyzer.get_longest_global_chain_length(dataset)
 
     is_binary = utility_functions.is_binary(dataset)
 
