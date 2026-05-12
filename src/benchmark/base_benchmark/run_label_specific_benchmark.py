@@ -1,14 +1,9 @@
-from src.benchmark.base_benchmark.base_benchmark import run_all_chain_benchmarks
+from src.benchmark.base_benchmark.base_benchmark import run_benchmark
 
-if __name__ == "__main__":
-    run_all_chain_benchmarks(
-        repeats=5,
-        verification_count=50,
-        watermark_percentages=[0.05, 0.10, 0.20, 0.30],
-        chain_extensions=[1, 2, 3],
-        feature_mode="subtle",
-        use_watermark_head=False,
-        use_same_label=True,
-        results_subdir="label_specific",
-        dataset_names=["PROTEINS"],
-    )
+run_benchmark(
+    dataset_names=["ENZYMES", "PROTEINS"],
+    feature_mode="subtle",
+    use_watermark_head=False,
+    use_same_label=True,
+    results_subdir="label_specific",
+)
