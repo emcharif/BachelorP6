@@ -113,6 +113,24 @@ def test_graphs_to_watermark_returns_different_from_different_key_seeded_rng_30p
     assert selected_graphs != [20, 14, 5, 10, 17, 8]
     assert unselected_graphs != [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
+def test_graph_to_watermark_same_label_return_correct_lengths():
+    rng = random.Random(1234)
+    dataset = utils.load_dataset(name="ENZYMES")
+    selected_graphs, unselected_graphs = utils.graphs_to_watermark_same_label(dataset=dataset, graph_index=0, rng=rng)
+
+    assert len(selected_graphs) == 30
+    assert len(unselected_graphs) == 570
+
+def test_graph_to_watermark_same_label_selected_graphs_contains_same_label():
+    rng = random.Random(1234)
+    dataset = utils.load_dataset(name="ENZYMES")
+    selected_graphs, _ = utils.graphs_to_watermark_same_label(dataset=dataset, graph_index=0, rng=rng)
+
+    test_label = selected_graphs[0].y
+
+    for i in range(len(selected_graphs)):
+        assert selected_graphs[i].y == test_label
+
 
 #=================dif_watermarked_and_benign_graph_edges()================
 def test_dif_watermarked_and_benign_graph_edges():
