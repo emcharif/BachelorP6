@@ -70,10 +70,10 @@ class ModelLoader:
 
             selected_graphs, _ = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
 
-            watermarked_graphs = [
-                inject_chain(graph=g, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
-                for g in selected_graphs
-            ]
+            watermarked_graphs = []
+            for graph in selected_graphs:
+                modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+                watermarked_graphs.append(modified_graph)
 
             watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
             watermarked_trainer.train(enable_prints=False, modeltype="watermarked")

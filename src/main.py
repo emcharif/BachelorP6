@@ -71,9 +71,7 @@ class Main:
         global_chain_length, _ = self.graph_analyzer.get_longest_global_chain_length(dataset)
         is_binary = self.utility_functions.is_binary(dataset)
 
-        _, unselected_graphs = self.utility_functions.graphs_to_watermark(
-            dataset=dataset, rng=rng
-        )
+        _, unselected_graphs = self.utility_functions.graphs_to_watermark(dataset=dataset, rng=rng)
 
         verification_graphs = []
         for graph in unselected_graphs[:50]:
