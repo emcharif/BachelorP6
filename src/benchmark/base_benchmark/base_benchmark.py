@@ -1,5 +1,4 @@
 from pathlib import Path
-import sys
 import os
 import copy
 import json
@@ -15,19 +14,12 @@ import torch.nn.functional as Function
 from torch_geometric.loader import DataLoader
 from dotenv import load_dotenv
 
-CURRENT_FILE = Path(__file__).resolve()
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
+from src.GNN.Trainer import Trainer
+from src.inject_chain import inject_chain
 
-SRC_ROOT = CURRENT_FILE.parents[2]
-PROJECT_ROOT = SRC_ROOT.parent
-RESULTS_ROOT = SRC_ROOT / "benchmark" / "results"
-
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
-
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from inject_chain import inject_chain
+load_dotenv()
 
 
 DEFAULT_DATASETS = ["ENZYMES", "PROTEINS"]
@@ -671,7 +663,7 @@ def run_benchmark(
                     )
                     traceback.print_exc()
 
-    output_dir = RESULTS_ROOT / results_subdir / slugify_dataset_name(dataset_name)
+    output_dir = Path("src/benchmark/results/"+ results_subdir)
 
     json_path, csv_path = save_results(
         all_results=all_results,
