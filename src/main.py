@@ -62,7 +62,6 @@ class Main:
         rng = random.Random(self.key)
         model_loader = ModelLoader()
 
-        # Read and load the suspect model once — removed duplicate loading block
         file_bytes = await model.read()
         suspect_model = model_loader.load_model(file_bytes=file_bytes)
 
