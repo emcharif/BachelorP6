@@ -1,6 +1,7 @@
 import torch
 from torch_geometric.data import Data
 from src.graph_analyzer import GraphAnalyzer
+import random
 
 
 def make_graph(edges):
@@ -14,9 +15,6 @@ star = make_graph([[0,1],[1,0],[0,2],[2,0],[0,3],[3,0]])
 single_edge = make_graph([[0,1],[1,0]])
 
 analyzer = GraphAnalyzer()
-
-
-# --- search_graph ---
 
 def test_search_graph_returns_two_values():
     result = analyzer.search_graph(linear)
@@ -78,9 +76,6 @@ def test_ring_all_nodes_have_two_neighbors():
     for node in neighbors:
         assert len(neighbors[node]) == 2
 
-
-# --- get_longest_global_chain_length ---
-
 def test_get_longest_global_chain_length_returns_int():
     result, _ = analyzer.get_longest_global_chain_length([linear])
     assert isinstance(result, int)
@@ -95,16 +90,12 @@ def test_get_longest_global_chain_length_ring_returns_one():
     result, _ = analyzer.get_longest_global_chain_length([ring])
     assert result == 1
 
-
 def test_get_longest_global_chain_length_larger_graph_beats_smaller():
     small = make_graph([[0,1],[1,0],[1,2],[2,1]])
     large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3]])
     result_small, _ = analyzer.get_longest_global_chain_length([small])
     result_large, _ = analyzer.get_longest_global_chain_length([large])
     assert result_large > result_small
-
-
-# --- get_shortest_global_chain_length ---
 
 def test_get_shortest_global_chain_length_smaller_graph_beats_larger():
     small = make_graph([[0,1],[1,0],[1,2],[2,1],[3,0],[0,3],[1,3],[3,1]])
@@ -124,9 +115,6 @@ def test_get_shortest_global_chain_length_contain_no_dangling():
     large = make_graph([[0,1],[1,0],[1,2],[2,1],[2,3],[3,2],[3,4],[4,3],[4,5],[5,4]])
     graph_index = analyzer.get_shortest_global_chain_length([small, large])
     assert graph_index == 0
-
-
-# --- get_dangling_chain_length ---
 
 def test_get_dangling_chain_length():
     neighbors = {
@@ -195,3 +183,51 @@ def test_get_dangling_chain_length_single_node():
     startnode = 1
     length, _ = analyzer.get_dangling_chain_length(startnode, neighbors)
     assert length == 1
+
+def test_select_longest_dangling_chain_returns_tuple():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    rng = random.Random(1234)
+    result = analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+    assert isinstance(result, tuple)
+
+
+def test_select_longest_dangling_chain_returns_three_values():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    rng = random.Random(1234)
+    result = analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+    assert len(result) == 3
+
+
+def test_select_longest_dangling_chain_start_is_valid_node():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    rng = random.Random(1234)
+    chain_start, _, _ = analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+    assert chain_start in neighbors
+
+
+def test_select_longest_dangling_chain_end_is_valid_node():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    rng = random.Random(1234)
+    _, _, chain_end = analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+    assert chain_end in neighbors
+
+
+def test_select_longest_dangling_chain_length_is_longest():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    rng = random.Random(1234)
+    _, length, _ = analyzer.select_longest_dangling_chain(chain_starts, neighbors, rng)
+    for node in chain_starts:
+        other_length, _ = analyzer.get_dangling_chain_length(node, neighbors)
+        assert length >= other_length
+
+
+def test_select_longest_dangling_chain_is_deterministic_with_same_seed():
+    chain_starts, neighbors = analyzer.search_graph(linear)
+    result_1 = analyzer.select_longest_dangling_chain(chain_starts, neighbors, random.Random(1234))
+    result_2 = analyzer.select_longest_dangling_chain(chain_starts, neighbors, random.Random(1234))
+    assert result_1 == result_2
+
+
+def test_select_longest_dangling_chain_ring_raises_or_empty():
+    chain_starts, _ = analyzer.search_graph(ring)
+    assert chain_starts == []

@@ -44,12 +44,14 @@ class Main:
         # Shortest benign chain and longest watermarked chain injected
         watermarked_graph_min = inject_chain(dataset[graph_index_min], target_chain_length, is_binary, rng, "subtle")
 
-        benign_edges_max, delta_edges_max = self.utility_functions.dif_watermarked_and_benign_graph_edges(
+        benign_edges_max = dataset[graph_index_max].edge_index.tolist()
+        delta_edges_max = self.utility_functions.dif_watermarked_and_benign_graph_edges(
             benign_edges=dataset[graph_index_max].edge_index.tolist(),
             watermarked_edges=watermarked_graph_max.edge_index.tolist()
         )
-        benign_edges_min, delta_edges_min = self.utility_functions.dif_watermarked_and_benign_graph_edges(
-            benign_edges=dataset[graph_index_min].edge_index.tolist(),
+        benign_edges_min = dataset[graph_index_min].edge_index.tolist()
+        delta_edges_min = self.utility_functions.dif_watermarked_and_benign_graph_edges(
+            benign_edges=benign_edges_min,
             watermarked_edges=watermarked_graph_min.edge_index.tolist()
         )
 

@@ -68,4 +68,4 @@ class UtilityFunctions:
 
         delta = (src_nodes, dst_nodes)
 
-        return benign_edges, delta
+        return delta
