@@ -38,10 +38,10 @@ class Main:
 
         is_binary = self.utility_functions.is_binary(dataset)
         
-        #Longest benign chain and shortest watermarked chain injected
+        # Longest benign chain and shortest watermarked chain injected
         watermarked_graph_max = inject_chain(dataset[graph_index_max], target_chain_length, is_binary, rng, "subtle")
         
-        #Shortest benign chain and longest watermarked chain injected
+        # Shortest benign chain and longest watermarked chain injected
         watermarked_graph_min = inject_chain(dataset[graph_index_min], target_chain_length, is_binary, rng, "subtle")
 
         benign_edges_max = dataset[graph_index_max].edge_index.tolist()
