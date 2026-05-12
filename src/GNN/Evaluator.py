@@ -4,7 +4,7 @@ import torch
 from torch_geometric.data import Batch
 from dotenv import load_dotenv
 import random
-from graph_analyzer import GraphAnalyzer
+from src.graph_analyzer import GraphAnalyzer
 import os
 
 class Evaluator:

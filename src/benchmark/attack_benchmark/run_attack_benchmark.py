@@ -1,4 +1,3 @@
-import sys
 import os
 import copy
 import json
@@ -10,23 +9,14 @@ from datetime import datetime
 
 import torch
 from dotenv import load_dotenv
-from utils import UtilityFunctions
-from graph_analyzer import GraphAnalyzer
-from GNN.Trainer import Trainer
-from GNN.Evaluator import Evaluator
-from inject_chain import inject_chain
-from model_attacks import model_attacks
+from src.utils import UtilityFunctions
+from src.graph_analyzer import GraphAnalyzer
+from src.GNN.Trainer import Trainer
+from src.GNN.Evaluator import Evaluator
+from src.inject_chain import inject_chain
+from src.benchmark.attack_benchmark.model_attacks import model_attacks
 
-CURRENT_DIR = os.path.dirname(__file__)
-ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
-SRC_DIR = os.path.join(ROOT_DIR, "src")
-
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
-
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def slugify_dataset_name(dataset_name: str) -> str:
