@@ -16,12 +16,8 @@ class GraphAnalyzer:
             cycles (e.g., squares or triangles) without a dangling 'tail' are 
             ignored as they contain no degree-1 nodes to initiate the search.
 
-        Args:
-            graph: A graph object containing 'edge_index' (e.g., PyG Data object).
-
         Returns:
             A tuple containing:
-                - graph: The original input graph object.
                 - chain_starts: A list of 'boundary' nodes where linear branches 
                     connect to a junction or cluster.
                 - neighbors: The full adjacency list {node_id: {neighbor_set}}.

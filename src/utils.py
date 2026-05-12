@@ -45,27 +45,27 @@ class UtilityFunctions:
 
         return selected_graphs, unselected_graphs
     
-    def dif_watermarked_and_benign_graph_edges(self, selected_graph_edges: tuple[list, list], watermarked_graph_edges: tuple[list, list]):
+    def dif_watermarked_and_benign_graph_edges(self, benign_edges: tuple[list, list], watermarked_edges: tuple[list, list]) -> tuple[tuple[list, list], tuple[list, list]]:
         """
         Args: 
-            selected_graph_edges: benign graph edges
-            watermarked_graph_edges: watermarked graph edges
+            benign_edges: benign graph edges
+            watermarked_edges: watermarked graph edges
         Returns: 
-            selected_graph_edges: benign graph edges
-            watermarked_graph_edges: watermarked graph edges
+            benign_edges: benign graph edges
+            watermarked_edges: watermarked graph edges
             delta: edge difference between the two graphs
         """
 
         src_nodes = []
-        for src_node_benign, src_node_watermarked in zip_longest(selected_graph_edges[0], watermarked_graph_edges[0], fillvalue = None):
+        for src_node_benign, src_node_watermarked in zip_longest(benign_edges[0], watermarked_edges[0], fillvalue = None):
             if src_node_benign != src_node_watermarked:
                 src_nodes.append(src_node_watermarked)
 
         dst_nodes = []
-        for dst_node_benign, dst_node_watermarked in zip_longest(selected_graph_edges[1], watermarked_graph_edges[1], fillvalue = None):
+        for dst_node_benign, dst_node_watermarked in zip_longest(benign_edges[1], watermarked_edges[1], fillvalue = None):
             if dst_node_benign != dst_node_watermarked:
                 dst_nodes.append(dst_node_watermarked)
 
-        delta = [src_nodes, dst_nodes]        
+        delta = (src_nodes, dst_nodes)
 
-        return selected_graph_edges, delta
+        return benign_edges, delta

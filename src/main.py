@@ -37,17 +37,20 @@ class Main:
         graph_index_min = self.graph_analyzer.get_shortest_global_chain_length(dataset)
 
         is_binary = self.utility_functions.is_binary(dataset)
-
+        
+        # Longest benign chain and shortest watermarked chain injected
         watermarked_graph_max = inject_chain(dataset[graph_index_max], target_chain_length, is_binary, rng, "subtle")
+        
+        # Shortest benign chain and longest watermarked chain injected
         watermarked_graph_min = inject_chain(dataset[graph_index_min], target_chain_length, is_binary, rng, "subtle")
 
         benign_edges_max, delta_edges_max = self.utility_functions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=dataset[graph_index_max].edge_index.tolist(),
-            watermarked_graph_edges=watermarked_graph_max.edge_index.tolist()
+            benign_edges=dataset[graph_index_max].edge_index.tolist(),
+            watermarked_edges=watermarked_graph_max.edge_index.tolist()
         )
         benign_edges_min, delta_edges_min = self.utility_functions.dif_watermarked_and_benign_graph_edges(
-            selected_graph_edges=dataset[graph_index_min].edge_index.tolist(),
-            watermarked_graph_edges=watermarked_graph_min.edge_index.tolist()
+            benign_edges=dataset[graph_index_min].edge_index.tolist(),
+            watermarked_edges=watermarked_graph_min.edge_index.tolist()
         )
 
         return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
