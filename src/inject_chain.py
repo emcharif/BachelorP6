@@ -2,7 +2,6 @@ import torch
 import random
 from src.graph_analyzer import GraphAnalyzer
 from torch_geometric.data import Data
-from src.utils import UtilityFunctions
 
 
 def inject_chain(

@@ -16,6 +16,8 @@ from src.GNN.Evaluator import Evaluator
 from src.inject_chain import inject_chain
 from src.benchmark.attack_benchmark.model_attacks import model_attacks
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def slugify_dataset_name(dataset_name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]+", "_", dataset_name).strip("_").lower()
