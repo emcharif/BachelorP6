@@ -289,7 +289,7 @@ def run_attack_benchmark(
         attacks = model_attacks(batch_size=batch_size)
 
         dataset = utility_functions.load_dataset(name=dataset_name)
-        global_chain_length = graph_analyzer.get_global_chain_length(dataset)
+        global_chain_length = graph_analyzer.get_longest_global_chain_length(dataset)
         is_binary = utility_functions.is_binary(dataset)
 
         if chain_extension < 1:
