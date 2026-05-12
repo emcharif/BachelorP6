@@ -1,8 +1,11 @@
-from torch_geometric.datasets import TUDataset
-import torch_geometric.transforms as T
 import random
 import torch
+
+import torch_geometric.transforms as T
+
+from torch_geometric.datasets import TUDataset
 from itertools import zip_longest
+from torch_geometric.data import Data
 
 class UtilityFunctions:
 
@@ -31,7 +34,18 @@ class UtilityFunctions:
                     return False
         return True
     
-    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05):
+    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05) -> tuple[Data, Data]:
+        """
+        Takes a dataset and selects pseudo-randomly a percentage of graphs to watermark
+        args:
+            dataset: list of graphs
+            rng: pseudo-random seed from secret key
+            percentage: percentage of graphs to select
+        returns:
+            selected_graphs: list of graphs
+            unselected_graphs: list of graphs
+        """
+
         indices = list(range(len(dataset)))
         rng.shuffle(indices) 
 
