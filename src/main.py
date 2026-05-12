@@ -77,7 +77,7 @@ class Main:
 
         verification_graphs = []
         for graph in unselected_graphs[:50]:
-            modified = inject_chain(graph, global_chain_length, is_binary, rng)
+            modified = inject_chain(graph, global_chain_length, is_binary, rng, "subtle")
             verification_graphs.append(modified)
 
         benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
