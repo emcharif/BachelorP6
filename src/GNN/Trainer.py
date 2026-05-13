@@ -29,6 +29,27 @@ class Trainer:
         use_watermark_head: bool = False,
         watermark_loss_weight: float = 1.0,
     ):
+        """
+        Initializes the Trainer, sets up the model dimensions from the dataset,
+        and organizes the dataset into train, validation, and test splits.
+
+        Args:
+            dataset: The full list of graphs to train on.
+            dataset_name: Name of the dataset, used for saving the model to disk.
+            watermarked_graphs: Optional list of watermarked graphs to append to
+                the training split.
+            batch_size: Number of graphs per batch during training.
+            train_pct: Fraction of the dataset used for training.
+            val_pct: Fraction of the dataset used for validation.
+            learning_rate: Step size for the Adam optimizer.
+            hidden_dim: Size of the hidden feature vectors in the GNN layers.
+            epochs: Number of full passes through the training data.
+            seed: Random seed for reproducibility. If None, falls back to SECRET_KEY.
+            use_watermark_head: If True, trains an auxiliary watermark detection head
+                alongside the classifier.
+            watermark_loss_weight: Scalar weight applied to the watermark loss term
+                when use_watermark_head is True.
+        """
         self.dataset = dataset
         self.dataset_name = dataset_name
         self.watermarked_graphs = watermarked_graphs
@@ -56,6 +77,21 @@ class Trainer:
         self.organize_dataset()
 
     def _build_loader(self, dataset, shuffle=False, seed_offset=0):
+        """
+        Builds a DataLoader for the given dataset.
+
+        If a seed is set, attaches a seeded Generator to ensure reproducible
+        batch ordering across runs.
+
+        Args:
+            dataset: List of graphs to load.
+            shuffle: Whether to shuffle the dataset each epoch.
+            seed_offset: Offset added to the seed when creating the Generator,
+                ensuring train, val, and test loaders have different random states.
+
+        Returns:
+            A DataLoader instance for the given dataset.
+        """
         if self.seed is not None:
             generator = torch.Generator()
             generator.manual_seed(self.seed + seed_offset)
@@ -64,6 +100,17 @@ class Trainer:
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
 
     def organize_dataset(self):
+        """
+        Splits the dataset into train, validation, and test sets and builds
+        their corresponding DataLoaders.
+
+        Uses the seed if provided, otherwise falls back to the SECRET_KEY
+        environment variable to control the shuffle. Watermarked graphs are
+        appended to the training split if provided.
+
+        Raises:
+            ValueError: If the dataset is None or empty.
+        """
         dataset = self.dataset
         if dataset is None or len(dataset) == 0:
             raise ValueError("Trainer requires a non-empty dataset")
@@ -92,6 +139,25 @@ class Trainer:
         self.test_loader = self._build_loader(self.test_dataset, shuffle=False, seed_offset=3)
 
     def train(self, modeltype: str = None):
+        """
+        Trains the GNN classifier on the training split.
+
+        Sets random seeds for reproducibility, initializes the Classifier model
+        and Adam optimizer, then runs the training loop for the configured number
+        of epochs. If use_watermark_head is True and batches contain an
+        is_watermarked attribute, a combined classification and watermark loss
+        is used. Otherwise only classification loss is applied.
+
+        Saves the trained model to disk under models/{dataset_name}/{modeltype}_model.pth
+        if both dataset_name and modeltype are provided.
+
+        Args:
+            modeltype: Label used for the saved model filename, e.g. 'benign'
+                or 'watermarked'. If None, the model is not saved to disk.
+
+        Returns:
+            The trained Classifier model in its final state.
+        """
         if self.seed is not None:
             random.seed(self.seed)
             torch.manual_seed(self.seed)
