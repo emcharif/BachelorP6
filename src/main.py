@@ -81,9 +81,7 @@ class Main:
         benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
         watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
-        trainer = Trainer(dataset=dataset)
-
-        result = trainer.is_model_trained_on_watermarked_dataset(
+        result = Trainer(dataset=dataset).is_model_trained_on_watermarked_dataset(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
