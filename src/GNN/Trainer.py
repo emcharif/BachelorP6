@@ -5,6 +5,7 @@ import os
 from torch_geometric.loader import DataLoader
 from src.GNN.Classifier import Classifier
 import torch.nn.functional as Function
+from torch_geometric.data import Data
 
 class Trainer:
 
@@ -69,7 +70,7 @@ class Trainer:
 
         self.organize_dataset()
 
-    def _build_loader(self, dataset, shuffle=False, seed_offset=0):
+    def _build_loader(self, dataset: list[Data], shuffle=False, seed_offset=0) -> DataLoader:
         """
         Builds a DataLoader for the given dataset.
 
@@ -92,7 +93,7 @@ class Trainer:
 
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
 
-    def organize_dataset(self):
+    def organize_dataset(self) -> None:
         """
         Splits the dataset into train, validation, and test sets and builds
         their corresponding DataLoaders.
@@ -131,7 +132,7 @@ class Trainer:
         self.val_loader = self._build_loader(self.val_dataset, shuffle=False, seed_offset=2)
         self.test_loader = self._build_loader(self.test_dataset, shuffle=False, seed_offset=3)
 
-    def train(self, modeltype: str = None):
+    def train(self, modeltype: str = None) -> Classifier:
         """
         Trains the GNN classifier on the training split.
 
