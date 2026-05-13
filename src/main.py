@@ -5,15 +5,15 @@ from dotenv import load_dotenv
 
 from src.utils import UtilityFunctions
 from src.graph_analyzer import GraphAnalyzer
-from src.GNN.Trainer import Trainer
+from src.GNN.Evaluator import Evaluator
 from src.inject_chain import inject_chain
 from src.load_model import ModelLoader
-
 
 class Main:
 
     graph_analyzer = GraphAnalyzer()
     utility_functions = UtilityFunctions()
+    evaluator = Evaluator()
 
     load_dotenv()
     key = os.getenv("SECRET_KEY")
@@ -81,7 +81,7 @@ class Main:
         benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
         watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
-        result = Trainer(dataset=dataset).is_model_trained_on_watermarked_dataset(
+        result = self.evaluator.test_models_with_watermark(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
