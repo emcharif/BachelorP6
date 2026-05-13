@@ -85,7 +85,6 @@ class Main:
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
-            original_dataset=list(dataset),
             watermarked_graphs=verification_graphs
         )
 

@@ -55,41 +55,25 @@ class Trainer:
 
         self.organize_dataset()
 
-
-    def _set_torch_seed(self):
-        if self.seed is not None:
-            random.seed(self.seed)
-            torch.manual_seed(self.seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(self.seed)
-
     def _build_loader(self, dataset, shuffle=False, seed_offset=0):
-        loader_kwargs = {
-            "batch_size": self.batch_size,
-            "shuffle": shuffle,
-        }
         if self.seed is not None:
             generator = torch.Generator()
             generator.manual_seed(self.seed + seed_offset)
-            loader_kwargs["generator"] = generator
-        return DataLoader(dataset, **loader_kwargs)
+            return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle, generator=generator)
 
+        return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
 
     def organize_dataset(self):
         dataset = self.dataset
         if dataset is None or len(dataset) == 0:
             raise ValueError("Trainer requires a non-empty dataset")
 
-        load_dotenv()
         key = os.getenv("SECRET_KEY")
         indices = list(range(len(dataset)))
 
-        if self.seed is not None:
-            rng = random.Random(self.seed)
-        else:
-            rng = random.Random(key)
-
+        rng = random.Random(self.seed) if self.seed is not None else random.Random(key)
         rng.shuffle(indices)
+
         train_size = int(self.train_pct * len(dataset))
         val_size = int(self.val_pct * len(dataset))
 
@@ -106,7 +90,6 @@ class Trainer:
         self.train_loader = self._build_loader(self.train_dataset, shuffle=True, seed_offset=1)
         self.val_loader = self._build_loader(self.val_dataset, shuffle=False, seed_offset=2)
         self.test_loader = self._build_loader(self.test_dataset, shuffle=False, seed_offset=3)
-
 
     def evaluate(self, loader):
         """Evaluate classification accuracy.
@@ -128,20 +111,21 @@ class Trainer:
         return correct / total if total > 0 else 0.0
 
     def train(self, modeltype: str = None):
-        self._set_torch_seed()
+        if self.seed is not None:
+            random.seed(self.seed)
+            torch.manual_seed(self.seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(self.seed)
+
         self.model = Classifier(self.input_dim, self.hidden_dim, self.output_dim)
         opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         for epoch in range(self.epochs):
             self.model.train()
-            total_loss = 0.0
 
             for batch in self.train_loader:
                 if self.use_watermark_head and hasattr(batch, "is_watermarked"):
-                    class_logits, wm_scores = self.model(
-                        batch,
-                        return_watermark_score=True,
-                    )
+                    class_logits, wm_scores = self.model(batch, return_watermark_score=True)
                     class_loss = Function.cross_entropy(class_logits, batch.y)
                     wm_targets = batch.is_watermarked.view(-1, 1).float()
                     wm_loss = Function.binary_cross_entropy(wm_scores, wm_targets)
@@ -153,8 +137,6 @@ class Trainer:
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
-
-                total_loss += loss.item()
 
         final_acc = self.evaluate(self.test_loader)
         print(f"Final Test Accuracy (modeltype: {modeltype}): {final_acc:.4f}")
@@ -188,15 +170,13 @@ class Trainer:
         benign_model,
         watermarked_model,
         suspect_model,
-        original_dataset: list,
-        watermarked_graphs: list
+        watermarked_graphs: list,
     ):
         benign_preds, benign_confs = self.get_predictions(benign_model, watermarked_graphs)
-        watermarked_preds, watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
+        watermarked_preds, _ = self.get_predictions(watermarked_model, watermarked_graphs)
         suspect_preds, suspect_confs = self.get_predictions(suspect_model, watermarked_graphs)
 
         print(f"benign avg confidence:      {sum(benign_confs)/len(benign_confs):.2f}")
-        print(f"watermarked avg confidence: {sum(watermarked_confs)/len(watermarked_confs):.2f}")
         print(f"suspect avg confidence:     {sum(suspect_confs)/len(suspect_confs):.2f}")
 
         agree_benign = sum(
