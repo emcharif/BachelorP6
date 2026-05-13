@@ -3,10 +3,7 @@ import random
 import os
 
 from torch_geometric.loader import DataLoader
-from torch_geometric.data import Batch
-from scipy.stats import binomtest
 from src.GNN.Classifier import Classifier
-from dotenv import load_dotenv
 import torch.nn.functional as Function
 
 from src.graph_analyzer import GraphAnalyzer
