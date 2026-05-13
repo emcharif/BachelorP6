@@ -38,7 +38,6 @@ class Trainer:
         self.train_pct = train_pct
         self.val_pct = val_pct
         self.learning_rate = learning_rate
-        self.hidden_dim = hidden_dim
         self.epochs = epochs
         self.seed = seed
 
@@ -47,13 +46,15 @@ class Trainer:
         self.val_loader = None
         self.test_loader = None
 
-        self.input_dim = None
-        self.output_dim = None
+        self.input_dim = dataset[0].x.shape[1]
+        self.hidden_dim = hidden_dim
+        self.output_dim = int(max(graph.y.item() for graph in dataset)) + 1
 
         self.use_watermark_head = use_watermark_head
         self.watermark_loss_weight = watermark_loss_weight
 
         self.organize_dataset()
+
 
     def _set_torch_seed(self):
         if self.seed is not None:
@@ -73,16 +74,6 @@ class Trainer:
             loader_kwargs["generator"] = generator
         return DataLoader(dataset, **loader_kwargs)
 
-    def _set_dimensions_from_datasets(self, datasets):
-        non_empty = [ds for ds in datasets if ds is not None and len(ds) > 0]
-        if not non_empty:
-            raise ValueError("No non-empty datasets were provided to Trainer")
-        reference_graph = non_empty[0][0]
-        self.input_dim = reference_graph.x.shape[1]
-        all_graphs = []
-        for ds in non_empty:
-            all_graphs.extend(ds)
-        self.output_dim = int(max(graph.y.item() for graph in all_graphs)) + 1
 
     def organize_dataset(self):
         dataset = self.dataset
@@ -112,18 +103,10 @@ class Trainer:
         self.val_dataset = [dataset[i] for i in val_idx]
         self.test_dataset = [dataset[i] for i in test_idx]
 
-        self._set_dimensions_from_datasets(
-            [self.train_dataset, self.val_dataset, self.test_dataset]
-        )
-        self.train_loader = self._build_loader(
-            self.train_dataset, shuffle=True, seed_offset=1
-        )
-        self.val_loader = self._build_loader(
-            self.val_dataset, shuffle=False, seed_offset=2
-        )
-        self.test_loader = self._build_loader(
-            self.test_dataset, shuffle=False, seed_offset=3
-        )
+        self.train_loader = self._build_loader(self.train_dataset, shuffle=True, seed_offset=1)
+        self.val_loader = self._build_loader(self.val_dataset, shuffle=False, seed_offset=2)
+        self.test_loader = self._build_loader(self.test_dataset, shuffle=False, seed_offset=3)
+
 
     def evaluate(self, loader):
         """Evaluate classification accuracy.
