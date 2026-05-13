@@ -9,21 +9,14 @@ from src.GNN.Classifier import Classifier
 from dotenv import load_dotenv
 import torch.nn.functional as Function
 
-from src.utils import UtilityFunctions
 from src.graph_analyzer import GraphAnalyzer
 
 
 class Trainer:
 
-    utility = UtilityFunctions()
-    analyzer = GraphAnalyzer()
-
     def __init__(
         self,
         dataset: list = None,
-        train_dataset: list = None,
-        val_dataset: list = None,
-        test_dataset: list = None,
         dataset_name: str = None,
         watermarked_graphs: list = None,
         batch_size=64,
@@ -38,10 +31,8 @@ class Trainer:
     ):
         self.dataset = dataset
         self.dataset_name = dataset_name
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
-        self.test_dataset = test_dataset
         self.watermarked_graphs = watermarked_graphs
+        self.graph_analyzer = GraphAnalyzer()
 
         self.batch_size = batch_size
         self.train_pct = train_pct
@@ -62,14 +53,7 @@ class Trainer:
         self.use_watermark_head = use_watermark_head
         self.watermark_loss_weight = watermark_loss_weight
 
-        if (
-            self.train_dataset is not None
-            and self.val_dataset is not None
-            and self.test_dataset is not None
-        ):
-            self.organize_explicit_splits()
-        else:
-            self.organize_dataset()
+        self.organize_dataset()
 
     def _set_torch_seed(self):
         if self.seed is not None:
@@ -99,20 +83,6 @@ class Trainer:
         for ds in non_empty:
             all_graphs.extend(ds)
         self.output_dim = int(max(graph.y.item() for graph in all_graphs)) + 1
-
-    def organize_explicit_splits(self):
-        self._set_dimensions_from_datasets(
-            [self.train_dataset, self.val_dataset, self.test_dataset]
-        )
-        self.train_loader = self._build_loader(
-            self.train_dataset, shuffle=True, seed_offset=1
-        )
-        self.val_loader = self._build_loader(
-            self.val_dataset, shuffle=False, seed_offset=2
-        )
-        self.test_loader = self._build_loader(
-            self.test_dataset, shuffle=False, seed_offset=3
-        )
 
     def organize_dataset(self):
         dataset = self.dataset
@@ -167,7 +137,6 @@ class Trainer:
         with torch.no_grad():
             for batch in loader:
                 out = self.model(batch)
-                # Guard: watermark head active → forward returns a tuple
                 if isinstance(out, tuple):
                     out = out[0]
                 pred = out.argmax(dim=1)
@@ -175,7 +144,7 @@ class Trainer:
                 total += batch.y.size(0)
         return correct / total if total > 0 else 0.0
 
-    def train(self, enable_prints: bool = False, modeltype: str = None):
+    def train(self, modeltype: str = None):
         self._set_torch_seed()
         self.model = Classifier(self.input_dim, self.hidden_dim, self.output_dim)
         opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -190,12 +159,9 @@ class Trainer:
                         batch,
                         return_watermark_score=True,
                     )
-
                     class_loss = Function.cross_entropy(class_logits, batch.y)
-
                     wm_targets = batch.is_watermarked.view(-1, 1).float()
                     wm_loss = Function.binary_cross_entropy(wm_scores, wm_targets)
-
                     loss = class_loss + self.watermark_loss_weight * wm_loss
                 else:
                     class_logits = self.model(batch)
@@ -206,14 +172,6 @@ class Trainer:
                 opt.step()
 
                 total_loss += loss.item()
-
-            if enable_prints:
-                print(
-                    f"Epoch {epoch:02d} | "
-                    f"Loss: {total_loss / len(self.train_loader):.4f} | "
-                    f"Train Acc: {self.evaluate(self.train_loader):.4f} | "
-                    f"Val Acc: {self.evaluate(self.val_loader):.4f}"
-                )
 
         final_acc = self.evaluate(self.test_loader)
         print(f"Final Test Accuracy (modeltype: {modeltype}): {final_acc:.4f}")
@@ -233,7 +191,6 @@ class Trainer:
             for graph in dataset:
                 batch = Batch.from_data_list([graph])
                 out = model(batch)
-                # Guard: watermark head active → forward returns a tuple
                 if isinstance(out, tuple):
                     out = out[0]
                 probs = torch.softmax(out, dim=1)
@@ -251,15 +208,6 @@ class Trainer:
         original_dataset: list,
         watermarked_graphs: list
     ):
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
-
-        analyzer = GraphAnalyzer()
-
-        indices = list(range(len(original_dataset)))
-        rng.shuffle(indices)
-
         benign_preds, benign_confs = self.get_predictions(benign_model, watermarked_graphs)
         watermarked_preds, watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
         suspect_preds, suspect_confs = self.get_predictions(suspect_model, watermarked_graphs)
@@ -268,30 +216,13 @@ class Trainer:
         print(f"watermarked avg confidence: {sum(watermarked_confs)/len(watermarked_confs):.2f}")
         print(f"suspect avg confidence:     {sum(suspect_confs)/len(suspect_confs):.2f}")
 
-        node_level_agreements = []
-
-        for i, graph in enumerate(watermarked_graphs):
-            chain_starts, neighbors = analyzer.search_graph(graph)
-
-            if len(chain_starts) != 0:
-                dangling = []
-                for d in chain_starts:
-                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
-                    dangling.append((d, length, edge_node))
-                max_length = max(dangling, key=lambda x: x[1])
-                longest = [d for d in dangling if d[1] == max_length[1]]
-            else:
-                longest = [(node, 0, node) for node in neighbors.keys()]
-
-            rng.shuffle(longest)
-
-            node_level_agreements.append(suspect_preds[i] == watermarked_preds[i])
-
         agree_benign = sum(
             s == b for s, b in zip(suspect_preds, benign_preds)
         ) / len(suspect_preds)
 
-        agree_watermark_count = sum(node_level_agreements)
+        agree_watermark_count = sum(
+            s == w for s, w in zip(suspect_preds, watermarked_preds)
+        )
 
         result = binomtest(agree_watermark_count, len(watermarked_graphs), p=agree_benign)
 
@@ -300,46 +231,3 @@ class Trainer:
         print(f"p-value: {result.pvalue:.4f}")
 
         return bool(result.pvalue < 0.05)
-
-    def verify_watermark(
-        self,
-        original_dataset: list,
-        watermarked_graphs: list,
-        chain_length: int
-    ) -> bool:
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
-
-        analyzer = GraphAnalyzer()
-
-        indices = list(range(len(original_dataset)))
-        rng.shuffle(indices)
-
-        verified = 0
-
-        for i, graph in enumerate(watermarked_graphs):
-            chain_starts, neighbors = analyzer.search_graph(graph)
-
-            if len(chain_starts) != 0:
-                dangling = []
-                for d in chain_starts:
-                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
-                    dangling.append((d, length, edge_node))
-                max_length = max(dangling, key=lambda x: x[1])
-                longest = [d for d in dangling if d[1] == max_length[1]]
-            else:
-                longest = [(node, 0, node) for node in neighbors.keys()]
-
-            rng.shuffle(longest)
-            selected_node = longest[0]
-            expected_edge_node = selected_node[2]
-
-            actual_length, tip = analyzer.get_dangling_chain_length(expected_edge_node, neighbors)
-
-            if actual_length >= chain_length:
-                verified += 1
-
-        ratio = verified / len(watermarked_graphs) if watermarked_graphs else 0
-        print(f"Watermark verification: {verified}/{len(watermarked_graphs)} graphs confirmed ({ratio:.0%})")
-        return ratio > 0.8
