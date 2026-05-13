@@ -8,6 +8,7 @@ from src.graph_analyzer import GraphAnalyzer
 from src.GNN.Evaluator import Evaluator
 from src.inject_chain import inject_chain
 from src.load_model import ModelLoader
+from fastapi import UploadFile, File
 
 class Main:
 
@@ -57,7 +58,23 @@ class Main:
 
         return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
 
-    async def check_model(self, model):
+    async def check_model(self, model: UploadFile = File(...)) -> dict:
+        """
+        Evaluates whether an uploaded model was trained on a watermarked dataset.
+
+        Loads the suspect model from the uploaded file, identifies which dataset
+        it was trained on, then constructs unseen watermarked graphs using the secret key. The suspect is then compared
+        against a benign and a watermarked reference model using confidence-based
+        statistical testing.
+
+        Args:
+            model: The uploaded .pth model file to evaluate.
+
+        Returns:
+            A dict of evaluation metrics from test_models_with_watermark,
+            including average confidences, distances, and paired t-test results
+            for the suspect against both the benign and watermarked reference models.
+        """
 
         rng = random.Random(self.key)
         model_loader = ModelLoader()
