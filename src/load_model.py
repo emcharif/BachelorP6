@@ -78,13 +78,13 @@ class ModelLoader:
 
             if model_name == "benign_model":
                 benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
-                benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+                benign_model = benign_trainer.train(modeltype="benign")
                 
                 return benign_model
             
             elif model_name == "watermarked_model":
                 watermarked_trainer = Trainer(dataset=list(unselected_graphs), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
-                watermarked_model = watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
+                watermarked_model = watermarked_trainer.train(modeltype="watermarked")
 
                 return watermarked_model
 
