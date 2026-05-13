@@ -41,7 +41,7 @@ class UtilityFunctions:
                     return False
         return True
     
-    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05) -> tuple[Data, Data]:
+    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05) -> tuple[list[Data], tuple[Data]]:
         """
         Takes a dataset and selects pseudo-randomly a percentage of graphs to watermark
         args:
@@ -66,7 +66,18 @@ class UtilityFunctions:
 
         return selected_graphs, unselected_graphs
 
-    def graphs_to_watermark_same_label(self, dataset: list, graph_index: int, rng: random.Random, percentage: float = 0.05):
+    def graphs_to_watermark_same_label(self, dataset: list, graph_index: int, rng: random.Random, percentage: float = 0.05) -> tuple[list[Data], tuple[Data]]:
+        """
+        Takes a dataset and selects pseudo-randomly a percentage of graphs to watermark with the same label determined by the parsed graph index
+        args:
+            dataset: list of graphs
+            graph_index: index of graph which label we want to inject watermark into
+            rng: pseudo-random seed from secret key
+            percentage: percentage of graphs to select
+        returns:
+            selected_graphs: list of graphs
+            unselected_graphs: list of graphs
+        """
 
         label = dataset[graph_index].y
 
