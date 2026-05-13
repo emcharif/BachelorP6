@@ -91,25 +91,6 @@ class Trainer:
         self.val_loader = self._build_loader(self.val_dataset, shuffle=False, seed_offset=2)
         self.test_loader = self._build_loader(self.test_dataset, shuffle=False, seed_offset=3)
 
-    def evaluate(self, loader):
-        """Evaluate classification accuracy.
-
-        Safe for both plain models and models with use_watermark_head=True,
-        which return a (class_logits, wm_score) tuple from forward().
-        """
-        self.model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for batch in loader:
-                out = self.model(batch)
-                if isinstance(out, tuple):
-                    out = out[0]
-                pred = out.argmax(dim=1)
-                correct += (pred == batch.y).sum().item()
-                total += batch.y.size(0)
-        return correct / total if total > 0 else 0.0
-
     def train(self, modeltype: str = None):
         if self.seed is not None:
             random.seed(self.seed)
@@ -137,9 +118,6 @@ class Trainer:
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
-
-        final_acc = self.evaluate(self.test_loader)
-        print(f"Final Test Accuracy (modeltype: {modeltype}): {final_acc:.4f}")
 
         if self.dataset_name is not None and modeltype is not None:
             model_dir = f"models/{self.dataset_name}"

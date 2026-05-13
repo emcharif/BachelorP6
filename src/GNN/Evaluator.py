@@ -9,6 +9,29 @@ import os
 
 class Evaluator:
 
+    def evaluate(self, loader):
+        """Evaluate classification accuracy.
+
+        Safe for both plain models and models with use_watermark_head=True,
+        which return a (class_logits, wm_score) tuple from forward().
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch in loader:
+                out = self.model(batch)
+                if isinstance(out, tuple):
+                    out = out[0]
+                pred = out.argmax(dim=1)
+                correct += (pred == batch.y).sum().item()
+                total += batch.y.size(0)
+
+        if total > 0:
+            return correct / total
+        else:
+            return 0.0
+
     def get_predictions(self, model, dataset: list):
         model.eval()
         predictions = []
