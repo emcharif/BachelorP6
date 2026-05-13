@@ -27,6 +27,13 @@ class UtilityFunctions:
         return dataset
     
     def is_binary(self, dataset: TUDataset) -> bool:
+        """
+        Takes a dataset and determines if the node features are binary
+        args: 
+            dataset: list of graphs
+        returns:
+            True if node features of the dataset is binary, else False
+        """
         for graph in dataset:
             if graph.x is not None:
                 unique_values = graph.x.unique()
