@@ -137,12 +137,4 @@ class Evaluator:
             "suspect_confidences": suspect_confs,
         }
 
-        print(f"benign avg confidence:           {benign_avg:.4f}")
-        print(f"watermarked avg confidence:      {watermarked_avg:.4f}")
-        print(f"suspect avg confidence:          {suspect_avg:.4f}")
-        print(f"avg distance to benign:          {avg_dist_to_benign:.4f}")
-        print(f"avg distance to watermarked:     {avg_dist_to_watermarked:.4f}")
-        print(f"paired p-value vs benign:        {results['p_value_vs_benign']:.4f}")
-        print(f"paired p-value vs watermarked:   {results['p_value_vs_watermarked']:.4f}")
-
         return results
