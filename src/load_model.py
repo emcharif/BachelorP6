@@ -63,6 +63,7 @@ class ModelLoader:
             rng = random.Random(key)
 
             dataset_name = path.split("/")[1]
+            model_name = path.split("/")[2].split(".")[0]
 
             dataset = self.utils.load_dataset(name=dataset_name)
             global_chain_length, _ = self.analyzer.get_longest_global_chain_length(dataset)
@@ -75,13 +76,18 @@ class ModelLoader:
                 modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
                 watermarked_graphs.append(modified_graph)
 
-            watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
-            watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
+            if model_name == "benign_model":
+                benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
+                benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+                
+                return benign_model
+            
+            elif model_name == "watermaked_model":
+                watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
+                watermarked_model = watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
 
-            benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
-            benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+                return watermarked_model
 
-            return benign_model
     
     def identify_dataset(self, suspect: Classifier) -> str:
         """
