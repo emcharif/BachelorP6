@@ -6,9 +6,6 @@ from torch_geometric.loader import DataLoader
 from src.GNN.Classifier import Classifier
 import torch.nn.functional as Function
 
-from src.graph_analyzer import GraphAnalyzer
-
-
 class Trainer:
 
     def __init__(
@@ -50,7 +47,6 @@ class Trainer:
         self.dataset = dataset
         self.dataset_name = dataset_name
         self.watermarked_graphs = watermarked_graphs
-        self.graph_analyzer = GraphAnalyzer()
 
         self.batch_size = batch_size
         self.train_pct = train_pct
