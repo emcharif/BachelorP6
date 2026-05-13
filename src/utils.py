@@ -6,6 +6,7 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import TUDataset
 from itertools import zip_longest
 from torch_geometric.data import Data
+from torch.utils.data import Subset
 
 class UtilityFunctions:
 
@@ -62,7 +63,7 @@ class UtilityFunctions:
         unselected_idx = indices[number_of_graphs_to_watermark:]
 
         selected_graphs   = [dataset[i] for i in selected_idx]
-        unselected_graphs = [dataset[i] for i in unselected_idx]
+        unselected_graphs = Subset(dataset, unselected_idx)
 
         return selected_graphs, unselected_graphs
 

@@ -69,7 +69,7 @@ class ModelLoader:
             global_chain_length, _ = self.analyzer.get_longest_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
-            selected_graphs, _ = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
+            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
 
             watermarked_graphs = []
             for graph in selected_graphs:
@@ -82,8 +82,8 @@ class ModelLoader:
                 
                 return benign_model
             
-            elif model_name == "watermaked_model":
-                watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
+            elif model_name == "watermarked_model":
+                watermarked_trainer = Trainer(dataset=list(unselected_graphs), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
                 watermarked_model = watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
 
                 return watermarked_model
