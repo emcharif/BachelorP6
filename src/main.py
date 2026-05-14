@@ -85,13 +85,13 @@ class Main:
         dataset_name = model_loader.identify_dataset(suspect_model)
 
         dataset = self.utility_functions.load_dataset(name=dataset_name)
-        global_chain_length, _ = self.graph_analyzer.get_longest_global_chain_length(dataset)
+        global_chain_length, graph_index = self.graph_analyzer.get_longest_global_chain_length(dataset)
         is_binary = self.utility_functions.is_binary(dataset)
 
-        _, unselected_graphs = self.utility_functions.graphs_to_watermark(dataset=dataset, rng=rng)
+        selected_graphs, _ = self.utility_functions.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
 
         verification_graphs = []
-        for graph in unselected_graphs[:50]:
+        for graph in selected_graphs:
             modified = inject_chain(graph, global_chain_length, is_binary, rng, "subtle")
             verification_graphs.append(modified)
 

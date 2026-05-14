@@ -132,9 +132,6 @@ class Evaluator:
             "p_value_vs_benign": 1.0 if math.isnan(p_value_vs_benign) else p_value_vs_benign,
             "t_stat_vs_watermarked": 0.0 if math.isnan(t_stat_vs_watermarked) else t_stat_vs_watermarked,
             "p_value_vs_watermarked": 1.0 if math.isnan(p_value_vs_watermarked) else p_value_vs_watermarked,
-            "benign_confidences": benign_confs,
-            "watermarked_confidences": watermarked_confs,
-            "suspect_confidences": suspect_confs,
         }
 
         return results

@@ -66,10 +66,10 @@ class ModelLoader:
             model_name = path.split("/")[2].split(".")[0]
 
             dataset = self.utils.load_dataset(name=dataset_name)
-            global_chain_length, _ = self.analyzer.get_longest_global_chain_length(dataset)
+            global_chain_length, graph_index = self.analyzer.get_longest_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
-            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
+            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
 
             watermarked_graphs = []
             for graph in selected_graphs:
