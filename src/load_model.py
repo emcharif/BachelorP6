@@ -4,17 +4,11 @@ from dotenv import load_dotenv
 from src.graph_analyzer import GraphAnalyzer
 from src.utils import UtilityFunctions
 from src.inject_chain import inject_chain
-from torch_geometric.loader import DataLoader
-
-import torch.nn.functional as F
-import numpy as np
 
 import os
 import torch
 import random
 import io
-
-
 
 class ModelLoader:    
 
@@ -22,7 +16,26 @@ class ModelLoader:
     analyzer = GraphAnalyzer()
 
     def load_model(self, path: str = None, file_bytes = None) -> Classifier:
+        """
+        Loads a Classifier model from file bytes, a saved state dict path,
+        or trains a new benign model from scratch if no saved model exists.
 
+        If file_bytes are provided, the model is reconstructed from the raw
+        bytes of a uploaded .pt file. If a path is provided and the file
+        exists, the model is loaded from disk. If the path does not exist,
+        a new watermarked and benign model is trained from scratch using the
+        dataset inferred from the path, and the benign model is returned.
+
+        Args:
+            path: Path to a saved model file, or a path-like string encoding
+                the dataset name (e.g. 'models/ENZYMES/...'). Used when
+                file_bytes is not provided.
+            file_bytes: Raw bytes of a uploaded .pt model file. Takes
+                priority over path if provided.
+
+        Returns:
+            A loaded or freshly trained Classifier model in eval mode.
+        """
         if file_bytes:
             buffer = io.BytesIO(file_bytes)
             state_dict = torch.load(buffer, map_location="cpu")
@@ -50,34 +63,58 @@ class ModelLoader:
             rng = random.Random(key)
 
             dataset_name = path.split("/")[1]
+            model_name = path.split("/")[2].split(".")[0]
 
             dataset = self.utils.load_dataset(name=dataset_name)
-            global_chain_length, _ = self.analyzer.get_longest_global_chain_length(dataset)
+            global_chain_length, graph_index = self.analyzer.get_longest_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
-            selected_graphs, _ = self.utils.graphs_to_watermark(dataset=dataset, rng=rng)
+            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
 
-            watermarked_graphs = [
-                inject_chain(g, global_chain_length, is_binary, rng)
-                for g in selected_graphs
-            ]
+            watermarked_graphs = []
+            for graph in selected_graphs:
+                modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+                watermarked_graphs.append(modified_graph)
 
-            # ── Train reference benign + watermarked models ───────────────────────
-            watermarked_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
-            watermarked_trainer.train(enable_prints=False, modeltype="watermarked")
+            if model_name == "benign_model":
+                benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
+                benign_model = benign_trainer.train(modeltype="benign")
+                
+                return benign_model
+            
+            elif model_name == "watermarked_model":
+                watermarked_trainer = Trainer(dataset=list(unselected_graphs), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
+                watermarked_model = watermarked_trainer.train(modeltype="watermarked")
 
-            benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
-            benign_model = benign_trainer.train(enable_prints=False, modeltype="benign")
+                return watermarked_model
 
-            return benign_model
     
     def identify_dataset(self, suspect: Classifier) -> str:
+        """
+        Identifies which dataset a suspect model was trained on by matching
+        its input and output dimensions against known datasets.
+
+        Iterates over a list of candidate dataset names, loading each one and
+        comparing its input feature dimension and number of classes against
+        the suspect model's architecture. Raises an error if no unique match
+        is found.
+
+        Args:
+            suspect: A trained Classifier model to identify.
+
+        Returns:
+            The name of the dataset the suspect model was trained on.
+
+        Raises:
+            ValueError: If no dataset matches or multiple datasets match the
+                suspect model's input and output dimensions.
+        """
+        
         suspect_input_dim  = suspect.conv1.nn[0].weight.shape[1]
         suspect_output_dim = suspect.classify.weight.shape[0]
     
         dataset_names = ["ENZYMES", "PROTEINS", "IMDB-BINARY"]
     
-        # Step 1: Filter candidates by matching dimensions
         candidates = []
         for name in dataset_names:
             dataset = self.utils.load_dataset(name)
@@ -86,28 +123,7 @@ class ModelLoader:
             if input_dim == suspect_input_dim and output_dim == suspect_output_dim:
                 candidates.append(name)
     
-        if len(candidates) == 0:
+        if len(candidates) == 0 or len(candidates) > 1:
             raise ValueError(f"No dataset matches input_dim={suspect_input_dim}, output_dim={suspect_output_dim}")
-    
-        if len(candidates) == 1:
-            return candidates[0]  # no need for cosine similarity
-    
-        # Step 2: Break ties with cosine similarity
-        scores = {}
-        for name in candidates:
-            dataset = self.utils.load_dataset(name)
-            benign = self.load_known_model(f"models/{name}/benign_model.pth")
-            loader = DataLoader(list(dataset[:50]), batch_size=32)
-            similarities = []
-            with torch.no_grad():
-                for batch in loader:
-                    try:
-                        suspect_out = suspect(batch)
-                        benign_out  = benign(batch)
-                        sim = F.cosine_similarity(suspect_out, benign_out, dim=1).mean().item()
-                        similarities.append(sim)
-                    except Exception:
-                        similarities.append(-1.0)
-            scores[name] = float(np.mean(similarities))
-    
-        return max(scores, key=scores.get)
+        else: 
+            return candidates[0]

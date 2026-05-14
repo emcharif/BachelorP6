@@ -1,8 +1,12 @@
-from torch_geometric.datasets import TUDataset
-import torch_geometric.transforms as T
 import random
 import torch
+
+import torch_geometric.transforms as T
+
+from torch_geometric.datasets import TUDataset
 from itertools import zip_longest
+from torch_geometric.data import Data
+from torch.utils.data import Subset
 
 class UtilityFunctions:
 
@@ -24,6 +28,13 @@ class UtilityFunctions:
         return dataset
     
     def is_binary(self, dataset: TUDataset) -> bool:
+        """
+        Takes a dataset and determines if the node features are binary
+        args: 
+            dataset: list of graphs
+        returns:
+            True if node features of the dataset is binary, else False
+        """
         for graph in dataset:
             if graph.x is not None:
                 unique_values = graph.x.unique()
@@ -31,7 +42,18 @@ class UtilityFunctions:
                     return False
         return True
     
-    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05):
+    def graphs_to_watermark(self, dataset: list, rng: random.Random, percentage: float = 0.05) -> tuple[list[Data], tuple[Data]]:
+        """
+        Takes a dataset and selects pseudo-randomly a percentage of graphs to watermark
+        args:
+            dataset: list of graphs
+            rng: pseudo-random seed from secret key
+            percentage: percentage of graphs to select
+        returns:
+            selected_graphs: list of graphs
+            unselected_graphs: list of graphs
+        """
+
         indices = list(range(len(dataset)))
         rng.shuffle(indices) 
 
@@ -41,11 +63,22 @@ class UtilityFunctions:
         unselected_idx = indices[number_of_graphs_to_watermark:]
 
         selected_graphs   = [dataset[i] for i in selected_idx]
-        unselected_graphs = [dataset[i] for i in unselected_idx]
+        unselected_graphs = Subset(dataset, unselected_idx)
 
         return selected_graphs, unselected_graphs
 
-    def graphs_to_watermark_same_label(self, dataset: list, graph_index: int, rng: random.Random, percentage: float = 0.05):
+    def graphs_to_watermark_same_label(self, dataset: list, graph_index: int, rng: random.Random, percentage: float = 0.05) -> tuple[list[Data], tuple[Data]]:
+        """
+        Takes a dataset and selects pseudo-randomly a percentage of graphs to watermark with the same label determined by the parsed graph index
+        args:
+            dataset: list of graphs
+            graph_index: index of graph which label we want to inject watermark into
+            rng: pseudo-random seed from secret key
+            percentage: percentage of graphs to select
+        returns:
+            selected_graphs: list of graphs
+            unselected_graphs: list of graphs
+        """
 
         label = dataset[graph_index].y
 

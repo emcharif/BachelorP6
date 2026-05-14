@@ -5,15 +5,16 @@ from dotenv import load_dotenv
 
 from src.utils import UtilityFunctions
 from src.graph_analyzer import GraphAnalyzer
-from src.GNN.Trainer import Trainer
+from src.GNN.Evaluator import Evaluator
 from src.inject_chain import inject_chain
 from src.load_model import ModelLoader
-
+from fastapi import UploadFile, File
 
 class Main:
 
     graph_analyzer = GraphAnalyzer()
     utility_functions = UtilityFunctions()
+    evaluator = Evaluator()
 
     load_dotenv()
     key = os.getenv("SECRET_KEY")
@@ -57,40 +58,50 @@ class Main:
 
         return benign_edges_max, delta_edges_max, benign_edges_min, delta_edges_min
 
-    async def check_model(self, model):
+    async def check_model(self, model: UploadFile = File(...)) -> dict:
+        """
+        Evaluates whether an uploaded model was trained on a watermarked dataset.
+
+        Loads the suspect model from the uploaded file, identifies which dataset
+        it was trained on, then constructs unseen watermarked graphs using the secret key. The suspect is then compared
+        against a benign and a watermarked reference model using confidence-based
+        statistical testing.
+
+        Args:
+            model: The uploaded .pth model file to evaluate.
+
+        Returns:
+            A dict of evaluation metrics from test_models_with_watermark,
+            including average confidences, distances, and paired t-test results
+            for the suspect against both the benign and watermarked reference models.
+        """
 
         rng = random.Random(self.key)
         model_loader = ModelLoader()
 
-        # Read and load the suspect model once — removed duplicate loading block
         file_bytes = await model.read()
         suspect_model = model_loader.load_model(file_bytes=file_bytes)
 
         dataset_name = model_loader.identify_dataset(suspect_model)
 
         dataset = self.utility_functions.load_dataset(name=dataset_name)
-        global_chain_length, _ = self.graph_analyzer.get_longest_global_chain_length(dataset)
+        global_chain_length, graph_index = self.graph_analyzer.get_longest_global_chain_length(dataset)
         is_binary = self.utility_functions.is_binary(dataset)
 
-        _, unselected_graphs = self.utility_functions.graphs_to_watermark(
-            dataset=dataset, rng=rng
-        )
+        selected_graphs, _ = self.utility_functions.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
 
         verification_graphs = []
-        for graph in unselected_graphs[:50]:
-            modified = inject_chain(graph, global_chain_length, is_binary, rng)
+        for graph in selected_graphs:
+            modified = inject_chain(graph, global_chain_length, is_binary, rng, "subtle")
             verification_graphs.append(modified)
 
         benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
         watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")
 
-        trainer = Trainer(dataset=dataset)
-
-        result = trainer.is_model_trained_on_watermarked_dataset(
+        result = self.evaluator.test_models_with_watermark(
             benign_model=benign_model,
             watermarked_model=watermarked_model,
             suspect_model=suspect_model,
-            original_dataset=list(dataset),
             watermarked_graphs=verification_graphs
         )
 

@@ -45,9 +45,9 @@ async def test_suspect_model(model: UploadFile = File(...)) -> dict:
     Accepts a .pth suspect model and return whether it was trained
     on a watermarked dataset.
     """
-    behavioural_match = await Main().check_model(model)
+    result = await Main().check_model(model)
 
-    return {"behavioural_match": bool(behavioural_match)}
+    return result
 
 
 if __name__ == "__main__":
