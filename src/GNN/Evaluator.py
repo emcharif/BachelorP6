@@ -1,43 +1,109 @@
-from scipy.stats import ttest_rel
 import math
 import torch
-from torch_geometric.data import Batch
-from dotenv import load_dotenv
-import random
-from src.graph_analyzer import GraphAnalyzer
-import os
+
+from scipy.stats import ttest_rel
+from torch_geometric.data import Batch, Data
+from torch_geometric.loader import DataLoader
+from src.GNN.Classifier import Classifier
 
 class Evaluator:
 
-    def get_predictions(self, model, dataset: list):
+    def evaluate(self, loader: DataLoader) -> float:
+        """
+        Computes classification accuracy over a DataLoader.
+
+        Handles both plain models and models with use_watermark_head=True,
+        where forward() returns a (class_logits, wm_score) tuple — in that
+        case only the class_logits are used for evaluation.
+
+        Args:
+            loader: A PyG DataLoader yielding batched graphs with ground-truth
+                    labels in batch.y.
+
+        Returns:
+            Accuracy as a float in [0, 1], or 0.0 if the loader is empty.
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch in loader:
+                out = self.model(batch)
+                if isinstance(out, tuple):
+                    out = out[0]
+                pred = out.argmax(dim=1)
+                correct += (pred == batch.y).sum().item()
+                total += batch.y.size(0)
+
+        if total > 0:
+            return correct / total
+        else:
+            return 0.0
+
+    def get_predictions(self, model: Classifier, dataset: list[Data]) -> list[float]:
+        """
+        Runs inference on a list of graphs and returns the model's confidence in terms of softmax for each prediction.
+
+        Args:
+            model:   The trained Classifier to run inference with.
+            dataset: A list of PyG Data objects to predict on.
+
+        Returns:
+            A list of confidence scores (max softmax probability) for each
+            graph, in the same order as the input dataset.
+        """
         model.eval()
-        predictions = []
         confidences = []
         with torch.no_grad():
             for graph in dataset:
                 batch = Batch.from_data_list([graph])
                 logits = model(batch)
                 probs = torch.softmax(logits, dim=1)
-                pred = probs.argmax(dim=1).item()
                 conf = probs.max(dim=1).values.item()
-                predictions.append(pred)
                 confidences.append(conf)
-        return predictions, confidences
+        return confidences
     
-    def test_models_with_watermark(
-        self,
-        benign_model,
-        watermarked_model,
-        suspect_model,
-        watermarked_graphs
-    ):
-        
-        if not watermarked_graphs:
-            raise ValueError("watermarked_graphs must contain at least one graph")
+    def test_models_with_watermark(self, benign_model: Classifier, watermarked_model: Classifier, suspect_model: Classifier, watermarked_graphs: list[Data]) -> dict:
+        """
+        Compares a suspect model's confidence scores against a benign and a
+        watermarked model over a set of unseen watermarked graphs.
 
-        _, benign_confs = self.get_predictions(benign_model, watermarked_graphs)
-        _, watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
-        _, suspect_confs = self.get_predictions(suspect_model, watermarked_graphs)
+        For each graph, the max softmax confidence is collected from all three
+        models. A paired t-test is then run to determine whether the suspect's
+        confidences are statistically closer to the benign or the watermarked
+        model, which serves as an indicator of whether the suspect was trained
+        on watermarked data.
+
+        Args:
+            benign_model:       A Classifier trained on the clean dataset
+                                without any watermark.
+            watermarked_model:  A Classifier trained on the watermarked dataset.
+            suspect_model:      A Classifier of unknown provenance to be tested.
+            watermarked_graphs: A list of PyG Data objects with injected watermark
+                                chains, used as the test set for all three models.
+
+        Returns:
+            A dict containing:
+                - benign_avg_confidence:        Mean confidence of the benign model.
+                - watermarked_avg_confidence:   Mean confidence of the watermarked model.
+                - suspect_avg_confidence:       Mean confidence of the suspect model.
+                - avg_distance_to_benign:       Mean absolute difference between
+                                                suspect and benign confidences.
+                - avg_distance_to_watermarked:  Mean absolute difference between
+                                                suspect and watermarked confidences.
+                - t_stat_vs_benign:             Paired t-statistic vs benign model.
+                - p_value_vs_benign:            Paired t-test p-value vs benign model.
+                - t_stat_vs_watermarked:        Paired t-statistic vs watermarked model.
+                - p_value_vs_watermarked:       Paired t-test p-value vs watermarked model.
+                - benign_confidences:           Per-graph confidence list for benign model.
+                - watermarked_confidences:      Per-graph confidence list for watermarked model.
+                - suspect_confidences:          Per-graph confidence list for suspect model.
+            """
+
+
+        benign_confs = self.get_predictions(benign_model, watermarked_graphs)
+        watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
+        suspect_confs = self.get_predictions(suspect_model, watermarked_graphs)
 
         benign_avg = sum(benign_confs) / len(benign_confs)
         watermarked_avg = sum(watermarked_confs) / len(watermarked_confs)
@@ -66,61 +132,6 @@ class Evaluator:
             "p_value_vs_benign": 1.0 if math.isnan(p_value_vs_benign) else p_value_vs_benign,
             "t_stat_vs_watermarked": 0.0 if math.isnan(t_stat_vs_watermarked) else t_stat_vs_watermarked,
             "p_value_vs_watermarked": 1.0 if math.isnan(p_value_vs_watermarked) else p_value_vs_watermarked,
-            "benign_confidences": benign_confs,
-            "watermarked_confidences": watermarked_confs,
-            "suspect_confidences": suspect_confs,
         }
 
-        print(f"benign avg confidence:           {benign_avg:.4f}")
-        print(f"watermarked avg confidence:      {watermarked_avg:.4f}")
-        print(f"suspect avg confidence:          {suspect_avg:.4f}")
-        print(f"avg distance to benign:          {avg_dist_to_benign:.4f}")
-        print(f"avg distance to watermarked:     {avg_dist_to_watermarked:.4f}")
-        print(f"paired p-value vs benign:        {results['p_value_vs_benign']:.4f}")
-        print(f"paired p-value vs watermarked:   {results['p_value_vs_watermarked']:.4f}")
-
         return results
-    
-    def verify_watermark(self, original_dataset: list, watermarked_graphs: list, chain_length: int) -> bool:
-        load_dotenv()
-        key = os.getenv("SECRET_KEY")
-        rng = random.Random(key)
-
-        analyzer = GraphAnalyzer()
-
-        # Mirror graphs_to_watermark exactly — same rng, same indices, same selected graphs
-        indices = list(range(len(original_dataset)))
-        rng.shuffle(indices)
-
-        # watermarked_graphs is already in the same order as selected_idx
-        # so we zip them directly
-        verified = 0
-
-        for i, graph in enumerate(watermarked_graphs):
-            chain_starts, neighbors = analyzer.search_graph(graph)
-
-            if len(chain_starts) != 0:
-                dangling = []
-                for d in chain_starts:
-                    length, edge_node = analyzer.get_dangling_chain_length(d, neighbors)
-                    dangling.append((d, length, edge_node))
-                max_length = max(dangling, key=lambda x: x[1])
-                longest = [d for d in dangling if d[1] == max_length[1]]
-            else:
-                longest = [(node, 0, node) for node in neighbors.keys()]
-
-            # Mirror inject_chain's node selection — same rng advancing across graphs
-            rng.shuffle(longest)
-            selected_node = longest[0]
-            expected_edge_node = selected_node[2]
-
-            # The injected chain tip is the last node — highest node id in the graph
-            # Walk forward from expected_edge_node and verify chain length
-            actual_length, tip = analyzer.get_dangling_chain_length(expected_edge_node, neighbors)
-
-            if actual_length >= chain_length:
-                verified += 1
-
-        ratio = verified / len(watermarked_graphs) if watermarked_graphs else 0
-        print(f"Watermark verification: {verified}/{len(watermarked_graphs)} graphs confirmed ({ratio:.0%})")
-        return ratio > 0.8

@@ -40,35 +40,35 @@ def test_graphs_to_watermark_always_returns_same_based_on_seeded_rng_5pct():
     dataset = list(range(1, 21))
     selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.05)    
     assert selected_graphs == [20]
-    assert unselected_graphs == [14, 5, 10, 17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+    assert list(unselected_graphs) == [14, 5, 10, 17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
 def test_graphs_to_watermark_always_returns_same_based_on_seeded_rng_10pct():
     rng = random.Random(1234)
     dataset = list(range(1, 21))
     selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.10)    
     assert selected_graphs == [20, 14]
-    assert unselected_graphs == [5, 10, 17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+    assert list(unselected_graphs) == [5, 10, 17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
 def test_graphs_to_watermark_always_returns_same_based_on_seeded_rng_20pct():
     rng = random.Random(1234)
     dataset = list(range(1, 21))
     selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.20)    
     assert selected_graphs == [20, 14, 5, 10]
-    assert unselected_graphs == [17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+    assert list(unselected_graphs) == [17, 8, 7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
 def test_graphs_to_watermark_always_returns_same_based_on_seeded_rng_30pct():
     rng = random.Random(1234)
     dataset = list(range(1, 21))
     selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.30)    
     assert selected_graphs == [20, 14, 5, 10, 17, 8]
-    assert unselected_graphs == [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+    assert list(unselected_graphs) == [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
 def test_graphs_to_watermark_returns_different_from_different_key_seeded_rng_30pct():
     rng = random.Random(4321)
     dataset = list(range(1, 21))
     selected_graphs, unselected_graphs = utils.graphs_to_watermark(dataset=dataset, rng=rng, percentage=0.30)    
     assert selected_graphs != [20, 14, 5, 10, 17, 8]
-    assert unselected_graphs != [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
+    assert list(unselected_graphs) != [7, 9, 18, 19, 6, 13, 16, 12, 11, 2, 3, 1, 4, 15]
 
 def test_graph_to_watermark_same_label_return_correct_lengths():
     rng = random.Random(1234)
