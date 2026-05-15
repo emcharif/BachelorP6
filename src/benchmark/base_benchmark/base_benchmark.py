@@ -1,5 +1,4 @@
 import os
-import copy
 import traceback
 
 from pathlib import Path
@@ -15,7 +14,7 @@ from src.benchmark.base_benchmark.benchmark_helpers import (
     split_dataset,
     build_watermarked_train_split,
     build_watermarked_train_split_same_label,
-    build_verification_graphs,
+    select_verification_graphs_from_training,
     structurally_verify_watermark,
     test_models_on_verification_graphs,
     extract_signal_metrics,
@@ -181,9 +180,9 @@ def run_single_chain_experiment(
     results["watermark_structurally_verified"] = watermark_present
 
     benign_trainer = Trainer(
-        train_dataset=copy.deepcopy(train_clean),
-        val_dataset=copy.deepcopy(val_clean),
-        test_dataset=copy.deepcopy(test_clean),
+        train_dataset=train_clean,
+        val_dataset=val_clean,
+        test_dataset=test_clean,
         dataset_name=dataset_name,
         batch_size=batch_size,
         learning_rate=learning_rate,
@@ -195,9 +194,9 @@ def run_single_chain_experiment(
     benign_model = benign_trainer.train(modeltype="benign")
 
     watermarked_trainer = Trainer(
-        train_dataset=copy.deepcopy(watermarked_train),
-        val_dataset=copy.deepcopy(val_clean),
-        test_dataset=copy.deepcopy(test_clean),
+        train_dataset=watermarked_train,
+        val_dataset=val_clean,
+        test_dataset=test_clean,
         dataset_name=dataset_name,
         batch_size=batch_size,
         learning_rate=learning_rate,
@@ -222,13 +221,10 @@ def run_single_chain_experiment(
         f"Drop: {results['accuracy_drop']:.4f}"
     )
 
-    verification_graphs = build_verification_graphs(
-        test_clean=test_clean,
-        target_chain_length=target_chain_length,
-        is_binary=is_binary,
+    verification_graphs = select_verification_graphs_from_training(
+        watermarked_training_graphs=watermarked_training_graphs,
         seed=seed,
         verification_count=verification_count,
-        feature_mode=feature_mode,
     )
 
     results["num_verification_graphs"] = len(verification_graphs)
@@ -237,7 +233,7 @@ def run_single_chain_experiment(
     reference_test = test_models_on_verification_graphs(
         benign_model=benign_model,
         watermarked_model=watermarked_model,
-        suspect_model=copy.deepcopy(watermarked_model),
+        suspect_model=watermarked_model,
         verification_graphs=verification_graphs,
         batch_size=batch_size,
     )
@@ -248,7 +244,7 @@ def run_single_chain_experiment(
     benign_control_test = test_models_on_verification_graphs(
         benign_model=benign_model,
         watermarked_model=watermarked_model,
-        suspect_model=copy.deepcopy(benign_model),
+        suspect_model=benign_model,
         verification_graphs=verification_graphs,
         batch_size=batch_size,
     )

@@ -12,6 +12,9 @@ class Trainer:
     def __init__(
         self,
         dataset: list = None,
+        train_dataset: list = None,
+        val_dataset: list = None,
+        test_dataset: list = None,
         dataset_name: str = None,
         watermarked_graphs: list = None,
         batch_size=64,
@@ -46,6 +49,9 @@ class Trainer:
                 when use_watermark_head is True.
         """
         self.dataset = dataset
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.test_dataset = test_dataset
         self.dataset_name = dataset_name
         self.watermarked_graphs = watermarked_graphs
 
@@ -61,14 +67,69 @@ class Trainer:
         self.val_loader = None
         self.test_loader = None
 
-        self.input_dim = dataset[0].x.shape[1]
         self.hidden_dim = hidden_dim
-        self.output_dim = int(max(graph.y.item() for graph in dataset)) + 1
-
         self.use_watermark_head = use_watermark_head
         self.watermark_loss_weight = watermark_loss_weight
+        # If explicit splits are provided, use them directly. Otherwise, split the dataset.
+        if (
+            self.train_dataset is not None
+            and self.val_dataset is not None
+            and self.test_dataset is not None
+        ):
+            self._set_dimensions_from_splits()
+            self.organize_explicit_splits()
+        else:
+            self._set_dimensions_from_dataset()
+            self.organize_dataset()
 
-        self.organize_dataset()
+
+    def _set_dimensions_from_dataset(self) -> None:
+        """
+        Sets the input and output dimensions based on the full dataset.
+        """
+        if self.dataset is None or len(self.dataset) == 0:
+            raise ValueError("Trainer requires a non-empty dataset")
+
+        self.input_dim = self.dataset[0].x.shape[1]
+        self.output_dim = int(max(graph.y.item() for graph in self.dataset)) + 1
+
+
+    def _set_dimensions_from_splits(self) -> None:
+        """
+        Sets the input and output dimensions based on the explicit train/val/test splits.
+        """
+        all_graphs = []
+
+        for split in [self.train_dataset, self.val_dataset, self.test_dataset]:
+            if split is not None:
+                all_graphs.extend(split)
+
+        if len(all_graphs) == 0:
+            raise ValueError("Trainer requires non-empty train/val/test splits")
+
+        self.input_dim = all_graphs[0].x.shape[1]
+        self.output_dim = int(max(graph.y.item() for graph in all_graphs)) + 1
+
+
+    def organize_explicit_splits(self) -> None:
+        """
+        Builds DataLoaders for the explicitly provided train, validation, and test splits.
+        """
+        self.train_loader = self._build_loader(
+            self.train_dataset,
+            shuffle=True,
+            seed_offset=1,
+        )
+        self.val_loader = self._build_loader(
+            self.val_dataset,
+            shuffle=False,
+            seed_offset=2,
+        )
+        self.test_loader = self._build_loader(
+            self.test_dataset,
+            shuffle=False,
+            seed_offset=3,
+        )
 
     def _build_loader(self, dataset: list[Data], shuffle=False, seed_offset=0) -> DataLoader:
         """
@@ -185,3 +246,24 @@ class Trainer:
             torch.save(self.model.state_dict(), f"{model_dir}/{modeltype}_model.pth")
 
         return self.model
+    
+    def evaluate(self, loader) -> float:
+        """
+        Evaluates the trained model on the given DataLoader, returning the accuracy.
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for batch in loader:
+                out = self.model(batch)
+
+                if isinstance(out, tuple):
+                    out = out[0]
+
+                pred = out.argmax(dim=1)
+                correct += (pred == batch.y).sum().item()
+                total += batch.y.size(0)
+
+        return correct / total if total > 0 else 0.0

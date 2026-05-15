@@ -37,18 +37,9 @@ def set_global_seeds(seed: int) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-def split_dataset(dataset, seed: int, train_pct: float = 0.70, val_pct: float = 0.15) -> tuple [list, list, list]:
+def split_dataset(dataset, seed: int, train_pct: float = 0.70, val_pct: float = 0.15) -> tuple[list, list, list]:
     """
-    Split a dataset into train/validation/test splits based on the given percentages.
-    The split is deterministic based on the provided seed.
-        Args:
-    - dataset: The full dataset to split (list of graphs).
-    - seed: Random seed for reproducibility of the split.
-    - train_pct: Percentage of the dataset to use for training (default 70%).
-    - val_pct: Percentage of the dataset to use for validation (default 15%).
-
-    Returns: 
-        - Tuple containing the train, validation, and test splits as lists of graphs.
+    Split the dataset into train, validation, and test sets based on the provided percentages.
     """
     rng = random.Random(seed)
     indices = list(range(len(dataset)))
@@ -61,9 +52,9 @@ def split_dataset(dataset, seed: int, train_pct: float = 0.70, val_pct: float = 
     val_idx = indices[train_size:train_size + val_size]
     test_idx = indices[train_size + val_size:]
 
-    train_split = [copy.deepcopy(dataset[i]) for i in train_idx]
-    val_split = [copy.deepcopy(dataset[i]) for i in val_idx]
-    test_split = [copy.deepcopy(dataset[i]) for i in test_idx]
+    train_split = [dataset[i] for i in train_idx]
+    val_split = [dataset[i] for i in val_idx]
+    test_split = [dataset[i] for i in test_idx]
 
     return train_split, val_split, test_split
 
@@ -201,47 +192,29 @@ def build_watermarked_train_split_same_label(
     watermarked_train = watermarked_graphs + clean_graphs
     return watermarked_train, watermarked_graphs, clean_graphs
 
-def build_verification_graphs(
-    test_clean,
-    target_chain_length: int,
-    is_binary: bool,
+def select_verification_graphs_from_training(
+    watermarked_training_graphs,
     seed: int,
     verification_count: int,
-    feature_mode: str,
 ) -> list:
     """
-    Create a set of verification graphs by injecting the watermark pattern into a subset of the clean test graphs.
-    Args:
-        - test_clean: List of clean test graphs.
-        - target_chain_length: Length of the dangling chain to inject as the watermark pattern.
-        - is_binary: Whether node/edge features are binary (affects how features are modified during injection).
-        - seed: Base random seed for reproducibility.
-        - verification_count: Number of verification graphs to create.
-        - feature_mode: "subtle" or "ood", determines how features are modified during injection.
+    Select verification graphs from the already-watermarked training graphs.
 
-    Returns: 
-        - list: List of watermarked verification graphs.
+    These are the actual watermarked graphs used during training, not unseen
+    test graphs modified after training.
     """
     rng = random.Random(seed + SEED_OFFSET_VERIFY)
 
-    max_count = min(verification_count, len(test_clean))
-    indices = list(range(len(test_clean)))
+    max_count = min(verification_count, len(watermarked_training_graphs))
+
+    indices = list(range(len(watermarked_training_graphs)))
     rng.shuffle(indices)
     selected_indices = indices[:max_count]
 
-    verification_graphs = []
-
-    for idx in selected_indices:
-        modified = inject_chain(
-            copy.deepcopy(test_clean[idx]),
-            target_chain_length,
-            is_binary,
-            rng,
-            feature_mode=feature_mode,
-        )
-        verification_graphs.append(modified)
-
-    return verification_graphs
+    return [
+        watermarked_training_graphs[idx].clone()
+        for idx in selected_indices
+    ]
 
 def structurally_verify_watermark(watermarked_graphs, target_chain_length: int) -> bool:
     """
@@ -259,7 +232,7 @@ def structurally_verify_watermark(watermarked_graphs, target_chain_length: int) 
     verified = 0
 
     for graph in watermarked_graphs:
-        _, chain_starts, neighbors = analyzer.search_graph(graph)
+        chain_starts, neighbors = analyzer.search_graph(graph)
 
         lengths = []
 
