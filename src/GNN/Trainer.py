@@ -21,8 +21,6 @@ class Trainer:
         hidden_dim=128,
         epochs=50,
         seed=None,
-        use_watermark_head: bool = False,
-        watermark_loss_weight: float = 1.0,
     ):
         """
         Initializes the Trainer, sets up the model dimensions from the dataset,
@@ -40,10 +38,6 @@ class Trainer:
             hidden_dim: Size of the hidden feature vectors in the GNN layers.
             epochs: Number of full passes through the training data.
             seed: Random seed for reproducibility. If None, falls back to SECRET_KEY.
-            use_watermark_head: If True, trains an auxiliary watermark detection head
-                alongside the classifier.
-            watermark_loss_weight: Scalar weight applied to the watermark loss term
-                when use_watermark_head is True.
         """
         self.dataset = dataset
         self.dataset_name = dataset_name
@@ -64,9 +58,6 @@ class Trainer:
         self.input_dim = dataset[0].x.shape[1]
         self.hidden_dim = hidden_dim
         self.output_dim = int(max(graph.y.item() for graph in dataset)) + 1
-
-        self.use_watermark_head = use_watermark_head
-        self.watermark_loss_weight = watermark_loss_weight
 
         self.organize_dataset()
 
@@ -138,9 +129,7 @@ class Trainer:
 
         Sets random seeds for reproducibility, initializes the Classifier model
         and Adam optimizer, then runs the training loop for the configured number
-        of epochs. If use_watermark_head is True and batches contain an
-        is_watermarked attribute, a combined classification and watermark loss
-        is used. Otherwise only classification loss is applied.
+        of epochs.
 
         Saves the trained model to disk under models/{dataset_name}/{modeltype}_model.pth
         if both dataset_name and modeltype are provided.
@@ -165,15 +154,8 @@ class Trainer:
             self.model.train()
 
             for batch in self.train_loader:
-                if self.use_watermark_head and hasattr(batch, "is_watermarked"):
-                    class_logits, wm_scores = self.model(batch, return_watermark_score=True)
-                    class_loss = Function.cross_entropy(class_logits, batch.y)
-                    wm_targets = batch.is_watermarked.view(-1, 1).float()
-                    wm_loss = Function.binary_cross_entropy(wm_scores, wm_targets)
-                    loss = class_loss + self.watermark_loss_weight * wm_loss
-                else:
-                    class_logits = self.model(batch)
-                    loss = Function.cross_entropy(class_logits, batch.y)
+                class_logits = self.model(batch)
+                loss = Function.cross_entropy(class_logits, batch.y)
 
                 opt.zero_grad()
                 loss.backward()

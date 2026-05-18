@@ -37,14 +37,7 @@ class Classifier(nn.Module):
 
         self.classify = nn.Linear(graph_embedding_dim, output_dim)
 
-        self.watermark_head = nn.Sequential(
-            nn.Linear(graph_embedding_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 2, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, data, return_watermark_score: bool = False):
+    def forward(self, data):
         x = data.x
         edge_index = data.edge_index
         batch = data.batch
@@ -62,10 +55,4 @@ class Classifier(nn.Module):
             dim=1,
         )
 
-        class_logits = self.classify(graph_embedding)
-
-        if return_watermark_score:
-            watermark_score = self.watermark_head(graph_embedding)
-            return class_logits, watermark_score
-
-        return class_logits
+        return self.classify(graph_embedding)
