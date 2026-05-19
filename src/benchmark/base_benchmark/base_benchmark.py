@@ -55,6 +55,9 @@ class BenchmarkConfig:
 
     variant: str = VARIANT
     feature_mode: str = "subtle"
+    # False = verify on watermarked graphs from training split
+    # True = verify on unseen watermarked graphs from validation split
+    held_out_verification: bool = False 
     output_dir: str = "benchmark_results"
 
 
@@ -135,6 +138,32 @@ def select_verification_graphs(watermarked_graphs, seed: int, count: int):
     indices = list(range(len(watermarked_graphs)))
     rng.shuffle(indices)
     return [watermarked_graphs[i].clone() for i in indices[: min(count, len(indices))]]
+
+def build_held_out_verification_graphs(
+    val_clean,
+    target_chain_length: int,
+    is_binary: bool,
+    seed: int,
+    count: int,
+    feature_mode: str,
+):
+    rng = random.Random(seed + 303)
+
+    indices = list(range(len(val_clean)))
+    rng.shuffle(indices)
+
+    selected_indices = indices[: min(count, len(indices))]
+
+    return [
+        inject_chain(
+            val_clean[i],
+            target_chain_length,
+            is_binary,
+            rng,
+            feature_mode=feature_mode,
+        )
+        for i in selected_indices
+    ]
 
 
 def add_signal_metrics(result: dict) -> dict:
@@ -229,11 +258,23 @@ def run_single(dataset_name: str, repeat: int, wm_pct: float, chain_ext: int, cf
     evaluator.model = watermarked_model
     watermarked_acc = evaluator.evaluate(watermarked_trainer.test_loader)
 
-    verification_graphs = select_verification_graphs(
-        watermarked_graphs=watermarked_graphs,
-        seed=seed,
-        count=cfg.verification_count,
-    )
+    if cfg.held_out_verification:
+        verification_graphs = build_held_out_verification_graphs(
+            val_clean=val_clean,
+            target_chain_length=target_len,
+            is_binary=is_binary,
+            seed=seed,
+            count=cfg.verification_count,
+            feature_mode=cfg.feature_mode,
+        )
+        verification_source = "held_out_validation"
+    else:
+        verification_graphs = select_verification_graphs(
+            watermarked_graphs=watermarked_graphs,
+            seed=seed,
+            count=cfg.verification_count,
+        )
+        verification_source = "watermarked_training"
 
     reference = add_signal_metrics(evaluator.test_models_with_watermark(
         benign_model=benign_model,
@@ -271,6 +312,8 @@ def run_single(dataset_name: str, repeat: int, wm_pct: float, chain_ext: int, cf
         "accuracy_drop": round(benign_acc - watermarked_acc, 4),
         "reference": reference,
         "control": control,
+        "held_out_verification": cfg.held_out_verification,
+        "verification_source": verification_source,
     }
 
 
