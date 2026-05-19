@@ -57,7 +57,7 @@ class BenchmarkConfig:
     feature_mode: str = "subtle"
     # False = verify on watermarked graphs from training split
     # True = verify on unseen watermarked graphs from validation split
-    held_out_verification: bool = False 
+    held_out_verification: bool = True 
     output_dir: str = "benchmark_results"
 
 
