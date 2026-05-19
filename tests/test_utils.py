@@ -96,3 +96,16 @@ def test_dif_watermarked_and_benign_graph_edges():
     delta_edges = utils.dif_watermarked_and_benign_graph_edges(benign_edges, watermarked_edges)
 
     assert delta_edges == ([3,4], [4,3])
+
+def test_same_of_split_of_dataset_every_time():
+    TRAIN_PCT = 0.70
+    VAL_PCT = 0.15
+    rng = random.Random(1234)
+    dataset_example = [1,2,3,4,5,6,7,8,9,10]
+
+    train_clean, val_clean, test_clean = UtilityFunctions().split_dataset(dataset_example, rng, TRAIN_PCT, VAL_PCT)
+    train_clean1, val_clean1, test_clean1 = UtilityFunctions().split_dataset(dataset_example, rng, TRAIN_PCT, VAL_PCT)
+
+    assert train_clean == train_clean1
+    assert val_clean == val_clean1
+    assert test_clean == test_clean1
