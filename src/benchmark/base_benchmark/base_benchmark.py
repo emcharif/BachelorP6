@@ -73,21 +73,6 @@ def set_seeds(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def split_dataset(dataset, seed: int, train_pct: float, val_pct: float):
-    rng = random.Random(seed)
-    indices = list(range(len(dataset)))
-    rng.shuffle(indices)
-
-    train_end = int(train_pct * len(dataset))
-    val_end = train_end + int(val_pct * len(dataset))
-
-    train = [dataset[i] for i in indices[:train_end]]
-    val = [dataset[i] for i in indices[train_end:val_end]]
-    test = [dataset[i] for i in indices[val_end:]]
-
-    return train, val, test
-
-
 def build_watermarked_train(
     train_clean,
     watermark_pct: float,
@@ -219,7 +204,7 @@ def run_single(dataset_name: str, repeat: int, wm_pct: float, chain_ext: int, cf
     is_binary = utils.is_binary(dataset)
     target_len = global_chain_len + chain_ext
 
-    train_clean, val_clean, test_clean = split_dataset(dataset, seed, cfg.train_pct, cfg.val_pct)
+    train_clean, val_clean, test_clean = utils.split_dataset(dataset, seed, cfg.train_pct, cfg.val_pct)
 
     watermarked_train, watermarked_graphs, clean_training_graphs = build_watermarked_train(
         train_clean=train_clean,
