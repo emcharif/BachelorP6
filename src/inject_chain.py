@@ -8,8 +8,7 @@ def inject_chain(
     graph: Data,
     target_chain_length: int,
     is_binary: bool,
-    rng: random.Random,
-    feature_mode: str,
+    rng: random.Random
 ) -> Data:
     """
     Injects a dangling chain into a graph.
@@ -24,17 +23,7 @@ def inject_chain(
         Whether node/edge features are binary.
     rng:
         Seeded Python random generator.
-    feature_mode:
-        "subtle" -> original behavior:
-            - binary features are copied
-            - continuous features are slightly perturbed
     """
-
-    if feature_mode not in {"subtle"}:
-        raise ValueError(
-            f"Unknown feature_mode={feature_mode}. "
-            "Expected 'subtle'."
-        )
 
     graph_analyzer = GraphAnalyzer()
     graph = graph.clone()

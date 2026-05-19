@@ -24,13 +24,13 @@ import matplotlib.pyplot as plt
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-DATASET_NAME = "PROTEINS"    # used for titles and output filenames
-VARIANT      = "subtle"      # used for titles and output filenames
+DATASET_NAME = "ENZYMES"    # used for titles and output filenames
+VARIANT      = "LABEL AGNOSTIC"      # used for titles and output filenames
 SHOW_PLOTS   = False         # set True to open windows (requires a display)
 
 # ── Point this at your CSV ─────────────────────────────────────────────────────
 # Option A: explicit path
-CSV_PATH = Path("benchmark_results/subtle/proteins_20260518_143252.csv")
+CSV_PATH = Path("benchmark_results/subtle/enzymes_20260519_144549.csv")
 
 # Un-comment the line below (and comment out CSV_PATH above) to use auto-discover:
 # CSV_PATH = find_latest_csv(Path("benchmark_results") / VARIANT, DATASET_NAME)
