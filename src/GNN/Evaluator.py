@@ -12,10 +12,6 @@ class Evaluator:
         """
         Computes classification accuracy over a DataLoader.
 
-        Handles both plain models and models with use_watermark_head=True,
-        where forward() returns a (class_logits, wm_score) tuple — in that
-        case only the class_logits are used for evaluation.
-
         Args:
             loader: A PyG DataLoader yielding batched graphs with ground-truth
                     labels in batch.y.
@@ -29,8 +25,6 @@ class Evaluator:
         with torch.no_grad():
             for batch in loader:
                 out = self.model(batch)
-                if isinstance(out, tuple):
-                    out = out[0]
                 pred = out.argmax(dim=1)
                 correct += (pred == batch.y).sum().item()
                 total += batch.y.size(0)
@@ -42,7 +36,8 @@ class Evaluator:
 
     def get_predictions(self, model: Classifier, dataset: list[Data]) -> list[float]:
         """
-        Runs inference on a list of graphs and returns the model's confidence in terms of softmax for each prediction.
+        Runs inference on a list of graphs and returns the model's confidence
+        in terms of softmax for each prediction.
 
         Args:
             model:   The trained Classifier to run inference with.
@@ -62,7 +57,7 @@ class Evaluator:
                 conf = probs.max(dim=1).values.item()
                 confidences.append(conf)
         return confidences
-    
+
     def test_models_with_watermark(self, benign_model: Classifier, watermarked_model: Classifier, suspect_model: Classifier, watermarked_graphs: list[Data]) -> dict:
         """
         Compares a suspect model's confidence scores against a benign and a
@@ -95,12 +90,7 @@ class Evaluator:
                 - p_value_vs_benign:            Paired t-test p-value vs benign model.
                 - t_stat_vs_watermarked:        Paired t-statistic vs watermarked model.
                 - p_value_vs_watermarked:       Paired t-test p-value vs watermarked model.
-                - benign_confidences:           Per-graph confidence list for benign model.
-                - watermarked_confidences:      Per-graph confidence list for watermarked model.
-                - suspect_confidences:          Per-graph confidence list for suspect model.
-            """
-
-
+        """
         benign_confs = self.get_predictions(benign_model, watermarked_graphs)
         watermarked_confs = self.get_predictions(watermarked_model, watermarked_graphs)
         suspect_confs = self.get_predictions(suspect_model, watermarked_graphs)
@@ -110,7 +100,7 @@ class Evaluator:
         suspect_avg = sum(suspect_confs) / len(suspect_confs)
 
         total_dist_to_benign = 0.0
-        total_dist_to_watermarked = 0.0     
+        total_dist_to_watermarked = 0.0
 
         for suspect, benign, watermarked in zip(suspect_confs, benign_confs, watermarked_confs):
             total_dist_to_benign += abs(suspect - benign)
@@ -122,16 +112,14 @@ class Evaluator:
         t_stat_vs_benign, p_value_vs_benign = ttest_rel(suspect_confs, benign_confs)
         t_stat_vs_watermarked, p_value_vs_watermarked = ttest_rel(suspect_confs, watermarked_confs)
 
-        results = {
-            "benign_avg_confidence": benign_avg,
-            "watermarked_avg_confidence": watermarked_avg,
-            "suspect_avg_confidence": suspect_avg,
-            "avg_distance_to_benign": avg_dist_to_benign,
+        return {
+            "benign_avg_confidence":       benign_avg,
+            "watermarked_avg_confidence":  watermarked_avg,
+            "suspect_avg_confidence":      suspect_avg,
+            "avg_distance_to_benign":      avg_dist_to_benign,
             "avg_distance_to_watermarked": avg_dist_to_watermarked,
-            "t_stat_vs_benign": 0.0 if math.isnan(t_stat_vs_benign) else t_stat_vs_benign,
-            "p_value_vs_benign": 1.0 if math.isnan(p_value_vs_benign) else p_value_vs_benign,
-            "t_stat_vs_watermarked": 0.0 if math.isnan(t_stat_vs_watermarked) else t_stat_vs_watermarked,
-            "p_value_vs_watermarked": 1.0 if math.isnan(p_value_vs_watermarked) else p_value_vs_watermarked,
+            "t_stat_vs_benign":            0.0 if math.isnan(t_stat_vs_benign)       else t_stat_vs_benign,
+            "p_value_vs_benign":           1.0 if math.isnan(p_value_vs_benign)      else p_value_vs_benign,
+            "t_stat_vs_watermarked":       0.0 if math.isnan(t_stat_vs_watermarked)  else t_stat_vs_watermarked,
+            "p_value_vs_watermarked":      1.0 if math.isnan(p_value_vs_watermarked) else p_value_vs_watermarked,
         }
-
-        return results

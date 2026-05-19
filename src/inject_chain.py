@@ -8,9 +8,7 @@ def inject_chain(
     graph: Data,
     target_chain_length: int,
     is_binary: bool,
-    rng: random.Random,
-    feature_mode: str,
-    ood_value: float = 2.0,
+    rng: random.Random
 ) -> Data:
     """
     Injects a dangling chain into a graph.
@@ -25,27 +23,10 @@ def inject_chain(
         Whether node/edge features are binary.
     rng:
         Seeded Python random generator.
-    feature_mode:
-        "subtle" -> original behavior:
-            - binary features are copied
-            - continuous features are slightly perturbed
-
-        "ood" -> strengthened variant:
-            - injected node features are fixed to ood_value
-            - edge features still follow the original subtle behavior
-
-    ood_value:
-        Constant feature value used for injected nodes in strengthened mode.
     """
 
-    if feature_mode not in {"subtle", "ood"}:
-        raise ValueError(
-            f"Unknown feature_mode={feature_mode}. "
-            "Expected 'subtle' or 'ood'."
-        )
-
     graph_analyzer = GraphAnalyzer()
-    graph.clone()
+    graph = graph.clone()
 
     chain_starts, neighbors = graph_analyzer.search_graph(graph)
 
@@ -62,8 +43,12 @@ def inject_chain(
     else:
         num_nodes = int(graph.edge_index.max()) + 1
 
+    # Guard: if selected_chain_end isn't in neighbors (e.g. fallback chain_info=[0,0,0]
+    # and node 0 has no dangling chain), initialise it so .add() doesn't KeyError.
+    neighbors.setdefault(selected_chain_end, set())
+
     while selected_chain_length < target_chain_length:
-        
+
         new_node_id = num_nodes
 
         new_edges = torch.tensor(
@@ -81,29 +66,20 @@ def inject_chain(
         if graph.x is not None:
             selected_chain_end_features = graph.x[selected_chain_end]
 
-            if feature_mode == "ood":
-                new_node_features = torch.full(
-                    (1, selected_chain_end_features.shape[0]),
-                    fill_value=ood_value,
+            if is_binary:
+                new_node_features = selected_chain_end_features.clone().unsqueeze(0)
+            else:
+                deviations = torch.tensor(
+                    [
+                        rng.uniform(0.97, 1.03)
+                        for _ in range(selected_chain_end_features.shape[0])
+                    ],
                     dtype=selected_chain_end_features.dtype,
                     device=selected_chain_end_features.device,
                 )
-
-            else:
-                if is_binary:
-                    new_node_features = selected_chain_end_features.clone().unsqueeze(0)
-                else:
-                    deviations = torch.tensor(
-                        [
-                            rng.uniform(0.97, 1.02)
-                            for _ in range(selected_chain_end_features.shape[0])
-                        ],
-                        dtype=selected_chain_end_features.dtype,
-                        device=selected_chain_end_features.device,
-                    )
-                    new_node_features = (
-                        selected_chain_end_features * deviations
-                    ).unsqueeze(0)
+                new_node_features = (
+                    selected_chain_end_features * deviations
+                ).unsqueeze(0)
 
             graph.x = torch.cat([graph.x, new_node_features], dim=0)
 

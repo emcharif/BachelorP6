@@ -12,6 +12,9 @@ import io
 
 class ModelLoader:    
 
+    TRAIN_PCT = 0.70
+    VAL_PCT = 0.15
+
     utils = UtilityFunctions()
     analyzer = GraphAnalyzer()
 
@@ -69,21 +72,25 @@ class ModelLoader:
             global_chain_length, graph_index = self.analyzer.get_longest_global_chain_length(dataset)
             is_binary = self.utils.is_binary(dataset)
 
-            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
+            train_clean, val_clean, test_clean = self.utils.split_dataset(dataset, rng, self.TRAIN_PCT, self.VAL_PCT)
+
+            selected_graphs, unselected_graphs = self.utils.graphs_to_watermark_same_label(dataset=list(train_clean), graph_index=graph_index, rng=rng)
 
             watermarked_graphs = []
             for graph in selected_graphs:
-                modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+                modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng)
                 watermarked_graphs.append(modified_graph)
 
+            watermarked_train_split = watermarked_graphs + unselected_graphs
+
             if model_name == "benign_model":
-                benign_trainer = Trainer(dataset=list(dataset), dataset_name=dataset_name)
+                benign_trainer = Trainer(train_dataset=train_clean, val_dataset=val_clean, test_dataset=test_clean, dataset_name=dataset_name)
                 benign_model = benign_trainer.train(modeltype="benign")
                 
                 return benign_model
             
             elif model_name == "watermarked_model":
-                watermarked_trainer = Trainer(dataset=list(unselected_graphs), dataset_name=dataset_name, watermarked_graphs=watermarked_graphs)
+                watermarked_trainer = Trainer(train_dataset=watermarked_train_split, val_dataset=val_clean, test_dataset=test_clean, dataset_name=dataset_name)
                 watermarked_model = watermarked_trainer.train(modeltype="watermarked")
 
                 return watermarked_model
