@@ -28,7 +28,7 @@ def helper(dataset_name: str=None):
 
     watermarked_graphs = []
     for graph in selected_graphs:
-        modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+        modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng)
         watermarked_graphs.append(modified_graph)
 
     watermarked_train_split = watermarked_graphs + unselected_graphs
