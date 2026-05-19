@@ -37,7 +37,7 @@ def inject_chain(
         )
 
     graph_analyzer = GraphAnalyzer()
-    graph.clone()
+    graph = graph.clone()
 
     chain_starts, neighbors = graph_analyzer.search_graph(graph)
 
@@ -82,7 +82,7 @@ def inject_chain(
             else:
                 deviations = torch.tensor(
                     [
-                        rng.uniform(0.97, 1.02)
+                        rng.uniform(0.97, 1.03)
                         for _ in range(selected_chain_end_features.shape[0])
                     ],
                     dtype=selected_chain_end_features.dtype,
