@@ -12,6 +12,9 @@ from fastapi import UploadFile, File
 
 class Main:
 
+    TRAIN_PCT = 0.70
+    VAL_PCT = 0.15
+
     graph_analyzer = GraphAnalyzer()
     utility_functions = UtilityFunctions()
     evaluator = Evaluator()
@@ -88,12 +91,14 @@ class Main:
         global_chain_length, graph_index = self.graph_analyzer.get_longest_global_chain_length(dataset)
         is_binary = self.utility_functions.is_binary(dataset)
 
-        selected_graphs, _ = self.utility_functions.graphs_to_watermark_same_label(dataset=dataset, graph_index=graph_index, rng=rng)
+        train_clean, _, _ = self.utility_functions.split_dataset(dataset, rng, self.TRAIN_PCT, self.VAL_PCT)
+
+        selected_graphs, _ = self.utility_functions.graphs_to_watermark_same_label(dataset=list(train_clean), graph_index=graph_index, rng=rng)
 
         verification_graphs = []
         for graph in selected_graphs:
-            modified = inject_chain(graph, global_chain_length, is_binary, rng, "subtle")
-            verification_graphs.append(modified)
+            modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+            verification_graphs.append(modified_graph)
 
         benign_model = model_loader.load_model(f"models/{dataset_name}/benign_model.pth")
         watermarked_model = model_loader.load_model(f"models/{dataset_name}/watermarked_model.pth")

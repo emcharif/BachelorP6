@@ -7,32 +7,40 @@ from src.graph_analyzer import GraphAnalyzer
 from src.inject_chain import inject_chain
 from unittest.mock import patch
 
-utils = UtilityFunctions()
-analyzer = GraphAnalyzer()
-rng = random.Random(1234)
-dataset = utils.load_dataset(name="ENZYMES")
+def helper(dataset_name: str=None):
 
-global_chain_length, _ = analyzer.get_longest_global_chain_length(dataset)
-is_binary = utils.is_binary(dataset)
-selected_graphs, _ = utils.graphs_to_watermark(dataset=dataset, rng=rng)
+    TRAIN_PCT = 0.70
+    VAL_PCT = 0.15
 
-watermarked_graphs = [
-    inject_chain(graph, global_chain_length, is_binary, rng, feature_mode="subtle")
-    for graph in selected_graphs
-]
+    utils = UtilityFunctions()
+    analyzer = GraphAnalyzer()
+    rng = random.Random(1234)
 
+    dataset = utils.load_dataset(name=dataset_name)
 
-def test_benign_and_wm_only_tested_on_clean_graphs():
-    benign_trainer = Trainer(dataset=dataset)
-    watermarked_trainer = Trainer(dataset=dataset, watermarked_graphs=watermarked_graphs)
+    global_chain_length, graph_index = analyzer.get_longest_global_chain_length(dataset)
+    is_binary = utils.is_binary(dataset)
+    selected_graphs, _ = utils.graphs_to_watermark(dataset=dataset, rng=rng)
 
-    assert len(benign_trainer.train_loader) < len(watermarked_trainer.train_loader)
-    assert len(benign_trainer.val_loader) == len(watermarked_trainer.val_loader)
-    assert len(benign_trainer.test_loader) == len(watermarked_trainer.test_loader)
+    train_clean, val_clean, test_clean = utils.split_dataset(dataset, rng, TRAIN_PCT, VAL_PCT)
+
+    selected_graphs, unselected_graphs = utils.graphs_to_watermark_same_label(dataset=list(train_clean), graph_index=graph_index, rng=rng)
+
+    watermarked_graphs = []
+    for graph in selected_graphs:
+        modified_graph = inject_chain(graph=graph, target_chain_length=global_chain_length, is_binary=is_binary, rng=rng, feature_mode="subtle")
+        watermarked_graphs.append(modified_graph)
+
+    watermarked_train_split = watermarked_graphs + unselected_graphs
+
+    return train_clean, val_clean, test_clean, watermarked_train_split
 
 
 def test_train_returns_model():
-    trainer = Trainer(dataset=dataset, epochs=1)
+    
+    train_clean, val_clean, test_clean, _ = helper(dataset_name = "ENZYMES")
+
+    trainer = Trainer(train_dataset=train_clean, val_dataset=val_clean, test_dataset=test_clean, epochs=1)
     with patch("torch.save"):
         model = trainer.train()
 
@@ -41,7 +49,10 @@ def test_train_returns_model():
 
 
 def test_train_returns_model_with_correct_dims_ENZYMES():
-    trainer = Trainer(dataset=dataset, epochs=1)
+
+    train_clean, val_clean, test_clean, _ = helper(dataset_name = "ENZYMES")
+
+    trainer = Trainer(train_dataset=train_clean, val_dataset=val_clean, test_dataset=test_clean, epochs=1)
 
     assert trainer.input_dim == 21
     assert trainer.hidden_dim == 128
@@ -49,8 +60,10 @@ def test_train_returns_model_with_correct_dims_ENZYMES():
 
 
 def test_train_returns_model_with_correct_dims_PROTEINS():
-    dataset_proteins = utils.load_dataset(name="PROTEINS")
-    trainer = Trainer(dataset=dataset_proteins, epochs=1)
+
+    train_clean, val_clean, test_clean, _ = helper(dataset_name = "PROTEINS")
+
+    trainer = Trainer(train_dataset=train_clean, val_dataset=val_clean, test_dataset=test_clean, epochs=1)
 
     assert trainer.input_dim == 4
     assert trainer.hidden_dim == 128

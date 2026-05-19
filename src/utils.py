@@ -130,3 +130,17 @@ class UtilityFunctions:
         delta = (src_nodes, dst_nodes)
 
         return delta
+    
+    def split_dataset(self, dataset, seed: int, train_pct: float, val_pct: float):
+        rng = random.Random(seed)
+        indices = list(range(len(dataset)))
+        rng.shuffle(indices)
+
+        train_end = int(train_pct * len(dataset))
+        val_end = train_end + int(val_pct * len(dataset))
+
+        train = [dataset[i] for i in indices[:train_end]]
+        val = [dataset[i] for i in indices[train_end:val_end]]
+        test = [dataset[i] for i in indices[val_end:]]
+
+        return train, val, test
