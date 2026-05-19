@@ -30,7 +30,7 @@ SHOW_PLOTS   = False         # set True to open windows (requires a display)
 
 # ── Point this at your CSV ─────────────────────────────────────────────────────
 # Option A: explicit path
-CSV_PATH = Path("benchmark_results/subtle/enzymes_20260519_144549.csv")
+CSV_PATH = Path("path/file.csv")
 
 # Un-comment the line below (and comment out CSV_PATH above) to use auto-discover:
 # CSV_PATH = find_latest_csv(Path("benchmark_results") / VARIANT, DATASET_NAME)

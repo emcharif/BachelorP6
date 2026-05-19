@@ -33,8 +33,8 @@ DEFAULT_VERIFICATION_COUNT = 50
 DEFAULT_TRAIN_PCT = 0.70
 DEFAULT_VAL_PCT = 0.15
 
-# Change manually between "subtle" and "same_label" for separate benchmark runs.
-VARIANT = "same_label"
+# Change manually between "label_agnostic" and "label_specific" for separate benchmark runs.
+VARIANT = "label_agnostic"
 
 
 @dataclass
@@ -54,7 +54,6 @@ class BenchmarkConfig:
     val_pct: float = DEFAULT_VAL_PCT
 
     variant: str = VARIANT
-    feature_mode: str = "subtle"
     # False = verify on watermarked graphs from training split
     # True = verify on unseen watermarked graphs from validation split
     held_out_verification: bool = True 
@@ -85,7 +84,7 @@ def build_watermarked_train(
 ):
     rng_select = random.Random(seed + 101)
 
-    if cfg.variant == "same_label":
+    if cfg.variant == "label_specific":
         _, anchor_idx = analyzer.get_longest_global_chain_length(train_clean)
         selected, unselected = utils.graphs_to_watermark_same_label(
             dataset=list(train_clean),
@@ -93,7 +92,7 @@ def build_watermarked_train(
             percentage=watermark_pct,
             rng=rng_select,
         )
-    elif cfg.variant == "subtle":
+    elif cfg.variant == "label_agnostic":
         selected, unselected = utils.graphs_to_watermark(
             dataset=list(train_clean),
             percentage=watermark_pct,
@@ -108,8 +107,7 @@ def build_watermarked_train(
             graph,
             target_chain_length,
             is_binary,
-            rng_inject,
-            feature_mode=cfg.feature_mode,
+            rng_inject
         ).clone()
         for graph in selected
     ]
@@ -130,7 +128,6 @@ def build_held_out_verification_graphs(
     is_binary: bool,
     seed: int,
     count: int,
-    feature_mode: str,
 ):
     rng = random.Random(seed + 303)
 
@@ -144,8 +141,7 @@ def build_held_out_verification_graphs(
             val_clean[i],
             target_chain_length,
             is_binary,
-            rng,
-            feature_mode=feature_mode,
+            rng
         )
         for i in selected_indices
     ]
@@ -249,8 +245,7 @@ def run_single(dataset_name: str, repeat: int, wm_pct: float, chain_ext: int, cf
             target_chain_length=target_len,
             is_binary=is_binary,
             seed=seed,
-            count=cfg.verification_count,
-            feature_mode=cfg.feature_mode,
+            count=cfg.verification_count
         )
         verification_source = "held_out_validation"
     else:
@@ -278,7 +273,6 @@ def run_single(dataset_name: str, repeat: int, wm_pct: float, chain_ext: int, cf
     return {
         "dataset": dataset_name,
         "variant": cfg.variant,
-        "feature_mode": cfg.feature_mode,
         "repeat": repeat,
         "seed": seed,
         "watermark_pct": wm_pct,
